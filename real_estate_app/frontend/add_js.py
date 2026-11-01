@@ -1,0 +1,141 @@
+code = '''
+        // Property Form Handler
+        document.getElementById('property-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('property-name').value;
+            const address = document.getElementById('property-address').value;
+            const result = await createProperty(name, address);
+            if (result) {
+                e.target.reset();
+                await initDashboard();
+                await populatePropertySelect();
+                await populateUnitSelect();
+            }
+        });
+
+        // Unit Form Handler
+        document.getElementById('unit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const propertyId = document.getElementById('unit-property').value;
+            const unitNumber = document.getElementById('unit-number').value;
+            const meterNumber = document.getElementById('unit-meter').value || null;
+            const result = await createUnit(propertyId, unitNumber, meterNumber);
+            if (result) {
+                e.target.reset();
+                await initDashboard();
+                await populateUnitSelect();
+            }
+        });
+
+        // Populate property select for unit form
+        async function populatePropertySelect() {
+            const properties = await getProperties();
+            const select = document.getElementById('unit-property');
+            if (select) {
+                select.innerHTML = properties.length ? properties.map(p => '<option value=' + p.id + '>' + p.name + '</option>').join('') : '<option value="">لا توجد عقارات</option>';
+            }
+        }
+
+        // Populate unit select for contract form
+        async function populateUnitSelect() {
+            const units = await getUnits();
+            const select = document.getElementById('contract-unit');
+            if (select) {
+                select.innerHTML = units.length ? units.map(u => '<option value=' + u.id + '>' + u.unit_number + '</option>').join('') : '<option value="">لا توجد وحدات</option>';
+            }
+        }
+
+        // Populate tenant select for contract form
+        async function populateTenantSelect() {
+            const tenants = await getTenants();
+            const select = document.getElementById('contract-tenant');
+            if (select) {
+                select.innerHTML = tenants.length ? tenants.map(t => '<option value=' + t.id + '>' + t.name + '</option>').join('') : '<option value="">لا توجد مستأجرين</option>';
+            }
+        }
+
+        // Populate meter select for reading form
+        async function populateMeterSelect() {
+            const meters = await getMeters();
+            const select = document.getElementById('reading-meter');
+            if (select) {
+                select.innerHTML = meters.length ? meters.map(m => '<option value=' + m.id + '>' + m.meter_number + ' (' + (m.meter_type === 'electricity' ? 'كهرباء' : 'ماء') + ')</option>').join('') : '<option value="">لا توجد عدادات</option>';
+            }
+        }
+
+        // Calculate Bill Form Handler
+        document.getElementById('reading-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const meterId = document.getElementById('reading-meter').value;
+            const consumption = parseInt(document.getElementById('reading-value').value);
+            const readingDate = document.getElementById('reading-date').value;
+            
+            if (!meterId || isNaN(consumption) || consumption <= 0) {
+                showToast('يرجى إدخال بيانات صحيحة', 'error');
+                return;
+            }
+            
+            const result = await calculateMeterBill(meterId, consumption);
+            
+            // Show result
+            const resultDiv = document.getElementById('calculation-result');
+            if (result.success) {
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = '<h3 style=color: green; margin-bottom: 15px;>✅ تم حساب الفاتورة بنجاح</h3>' + 
+                    '<div style=display: grid; grid-template-columns: 1fr 1fr; gap: 10px;>' + 
+                    '<div>الاستهلاك: <strong>' + result.consumption + ' وحدة</strong></div>' + 
+                    '<div>التاريخ: <strong>' + formatDate(readingDate) + '</strong></div>' + 
+                    '<div>الشريحة 1 (0-100): <strong>' + formatCurrency(result.tier1_amount) + '</strong></div>' + 
+                    '<div>الشريحة 2 (101+): <strong>' + formatCurrency(result.tier2_amount) + '</strong></div>' + 
+                    '<div>رسوم الخدمة: <strong>' + formatCurrency(result.service_fee) + '</strong></div>' + 
+                    '<div>الضريبة (15%): <strong>' + formatCurrency(result.vat) + '</strong></div>' + 
+                    '<div style=grid-column: span 2; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px;>' + 
+                    '<div style=font-size: 1.2em;>المبلغ الإجمالي: <strong style=color: #dc3545;>' + formatCurrency(result.total_amount) + '</strong></div>' + 
+                    '</div>' + 
+                    '</div>';
+                showToast('تم حساب الفاتورة بنجاح', 'success');
+            } else {
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = '<h3 style=color: red; margin-bottom: 10px;>❌ فشل في حساب الفاتورة</h3>' + 
+                    '<p style=color: #666;>' + result.message + '</p>';
+                showToast(result.message, 'error');
+            }
+        });
+
+        // Dashboard init
+        async function initDashboard() {
+            const properties = await getProperties();
+            const contracts = await getContracts();
+            const meters = await getMeters();
+            const bills = await getMeterBills();
+
+            document.getElementById("total-properties").textContent = properties.length;
+            document.getElementById("total-units").textContent = meters.length;
+            document.getElementById("active-contracts").textContent = contracts.filter(c => c.status === "active").length;
+            document.getElementById("pending-bills").textContent = bills.filter(b => b.status === "active").length;
+
+            document.getElementById("properties-list").innerHTML = properties.length ? properties.map(p => '<div class="card" style="padding:10px;margin-bottom:10px"><strong>' + p.name + '</strong><br>' + p.address + '</div>').join("") : '<p class="loading">لا توجد عقارات</p>';
+            document.getElementById("contracts-list").innerHTML = contracts.length ? contracts.map(c => '<div class="card" style="padding:10px;margin-bottom:10px"><strong>العقد #' + c.id + '</strong><span class="px-3 py-1 rounded-full text-sm ' + getStatusColor(c.status) + '">' + (c.status === "active" ? "نشط" : c.status === "paid" ? "مدفوع" : c.status === "overdue" ? "متأخر" : "ملغي") + '</span><p>المبلغ: ' + formatCurrency(c.amount) + '</p><p class="text-sm">تاريخ الاستحقاق: ' + formatDate(c.due_date) + '</p></div>').join("") : '<p class="loading">لا توجد عقود</p>';
+            document.getElementById("meters-list").innerHTML = meters.length ? meters.map(m => '<div class="card" style="padding:10px;margin-bottom:10px"><strong>العداد #' + m.meter_number + '</strong><p>' + (m.meter_type === "electricity" ? "الكهرباء" : "الماء") + '</p><p class="text-sm">آخر قراءة: ' + formatDate(m.last_reading_date) + '</p></div>').join("") : '<p class="loading">لا توجد عدادات</p>';
+        }
+
+        // Show section on navigation
+        document.querySelectorAll('nav button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Initialize on load
+        window.addEventListener('load', async () => {
+            await initDashboard();
+            await populatePropertySelect();
+            await populateUnitSelect();
+            await populateTenantSelect();
+            await populateMeterSelect();
+        });
+'''
+with open('inline_js.txt', 'w', encoding='utf-8') as f:
+    f.write(code)
+print('JS code saved')

@@ -1,0 +1,4 @@
+# Dependencies
+.env.local
+dist/
+build/
