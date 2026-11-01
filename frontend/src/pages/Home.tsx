@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useLanguage } from '../i18n/LanguageContext'
-
+import { useLanguage } from '../contexts/LanguageContext'
 export default function Home() {
   const navigate = useNavigate()
   const { language } = useLanguage()
