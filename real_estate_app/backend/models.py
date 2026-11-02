@@ -1,95 +1,55 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Numeric
-from sqlalchemy.sql import func
-from database import Base
-import enum
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
+db = SQLAlchemy()
 
-class ContractStatus(str, enum.Enum):
-    """Contract status enum"""
-    ACTIVE = "active"
-    PAID = "paid"
-    OVERDUE = "overdue"
-    CANCELLED = "cancelled"
+class Tenant(db.Model):
+    __tablename__ = 'tenants'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    subscription_type = db.Column(db.String(50), default='basic')
+    subscription_end_date = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True) # ربط العميل بالشركات، وnull للمطوّر
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(30), default='admin') # super_admin, admin, manager, accountant, employee
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime, nullable=True)
 
-class MeterType(str, enum.Enum):
-    """Meter type enum - نوع العداد"""
-    ELECTRICITY = "electricity"  # الكهرباء
-    WATER = "water"  # الماء
+    tenant = db.relationship('Tenant', backref=db.backref('users', lazy=True))
 
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
-class Property(Base):
-    """Property table - العقارات"""
-    __tablename__ = "properties"
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    address = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "username": self.username,
+            "email": self.email,
+            "phone": self.phone,
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None
+        }
 
-
-class Unit(Base):
-    """Unit table - الوحدات العقارية"""
-    __tablename__ = "units"
-
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, nullable=False)
-    unit_number = Column(String(50), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-class Tenant(Base):
-    """Tenant table - المستأجرين"""
-    __tablename__ = "tenants"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    phone = Column(String(50), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-class Contract(Base):
-    """Contract table - العقود والدفعات"""
-    __tablename__ = "contracts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    unit_id = Column(Integer, nullable=False)
-    tenant_id = Column(Integer, nullable=False)
-    amount = Column(Integer, nullable=False)  # Amount in currency units
-    due_date = Column(DateTime(timezone=True), nullable=False)
-    status = Column(Enum(ContractStatus), default=ContractStatus.ACTIVE)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-class Meter(Base):
-    """Meter table - عدادات الكهرباء والماء"""
-    __tablename__ = "meters"
-
-    id = Column(Integer, primary_key=True, index=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False)
-    meter_type = Column(Enum(MeterType), nullable=False)  # electricity or water
-    meter_number = Column(String(50), nullable=False, unique=True)
-    last_reading_date = Column(DateTime(timezone=True), nullable=False)
-    last_attempt_count = Column(Integer, default=0)  # عدد محاولات الحساب
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-class MeterBill(Base):
-    """MeterBill table - فواتير العدادات"""
-    __tablename__ = "meter_bills"
-
-    id = Column(Integer, primary_key=True, index=True)
-    meter_id = Column(Integer, ForeignKey("meters.id"), nullable=False)
-    consumption = Column(Integer, nullable=False)  # الاستهلاك بالوحدات
-    tier1_amount = Column(Numeric(10, 2), nullable=False)  # المبلغ للشريحة الأولى
-    tier2_amount = Column(Numeric(10, 2), nullable=False)  # المبلغ للشريحة الثانية
-    service_fee = Column(Numeric(10, 2), nullable=False)  # رسوم الخدمة
-    vat = Column(Numeric(10, 2), nullable=False)  # الضريبة
-    total_amount = Column(Numeric(10, 2), nullable=False)  # المبلغ الإجمالي
-    calculation_date = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(255), nullable=False)
+    ip_address = db.Column(db.String(50), nullable=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)

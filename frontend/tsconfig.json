@@ -22,8 +22,7 @@
 
     /* Path mapping */
 "ignoreDeprecations": "5.0",
-"baseUrl": ".",
-    "paths": {
+  "paths": {
       "@/*": ["./src/*"]
     }
   },
