@@ -1,31 +1,26 @@
+# app/models.py أو المسار الخاص بالـ models لديك
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
+import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
-
-db = SQLAlchemy()
-
-class Tenant(db.Model):
-    __tablename__ = 'tenants'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    subscription_type = db.Column(db.String(50), default='basic')
-    subscription_end_date = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+# استورد db حسب إعدادات مشروعك
+from .database import db # أو من المجلد المناسب
 
 class User(db.Model):
     __tablename__ = 'users'
+
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True) # ربط العميل بالشركات، وnull للمطوّر
+    tenant_id = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), nullable=False, index=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    phone = db.Column(db.String(20), nullable=True)
-    password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(30), default='admin') # super_admin, admin, manager, accountant, employee
-    is_active = db.Column(db.Boolean, default=True)
+    phone_number = db.Column(db.String(20), nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    
+    # الصلاحيات: 'super_admin', 'admin', 'manager', 'accountant', 'employee'
+    role = db.Column(db.String(20), default='admin', nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
-
-    tenant = db.relationship('Tenant', backref=db.backref('users', lazy=True))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -39,17 +34,9 @@ class User(db.Model):
             "tenant_id": self.tenant_id,
             "username": self.username,
             "email": self.email,
-            "phone": self.phone,
+            "phone_number": self.phone_number,
             "role": self.role,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None
         }
-
-class AuditLog(db.Model):
-    __tablename__ = 'audit_logs'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    action = db.Column(db.String(255), nullable=False)
-    ip_address = db.Column(db.String(50), nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
