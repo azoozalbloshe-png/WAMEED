@@ -1,255 +1,659 @@
-import { useState } from 'react';
-import { Zap, Calculator, RefreshCcw, CheckCircle2, Droplets } from 'lucide-react';
-
+import QuietSection from "../components/platform/QuietSection";
+import AddButton from "../components/platform/AddButton";
+import { Gauge as PageTitleIcon } from "lucide-react";
+import { numberLocale } from "../i18n/runtime";
+import { useLanguage as useUiLanguage } from "../contexts/LanguageContext";
+import { tr, direction } from "../i18n/runtime";
+import { useSearchParams } from "react-router-dom";
+import { usePermissions } from "../contexts/PermissionsContext";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  RefreshCw,
+  Zap,
+  Droplets,
+  Flame,
+  Gauge,
+  History,
+  CheckCircle2,
+} from "lucide-react";
+import {
+  PageHead,
+  Modal,
+  Loading,
+  Notice,
+  Empty,
+  money,
+  day,
+  errorText,
+} from "../components/platform/UI";
+import {
+  MeterRecord,
+  PropertyRecord,
+  ReadingRecord,
+  realEstateService,
+} from "../services/realEstateService";
+const typeLabels: Record<string, string> = {
+  electricity: "Electricity",
+  water: "Water",
+  gas: "Gas",
+};
+const number = (n: number) =>
+  new Intl.NumberFormat(numberLocale(), { maximumFractionDigits: 2 }).format(n);
 export default function MeterCalculation() {
-  const [previousReading, setPreviousReading] = useState('');
-  const [currentReading, setCurrentReading] = useState('');
-  const [meterType, setMeterType] = useState<'electricity' | 'water'>('electricity');
-  const [result, setResult] = useState<{
-    consumption: number;
-    basePrice: number;
-    serviceFee: number;
-    vat: number;
-    total: number;
-  } | null>(null);
-
-  const handleInputChange = (value: string, setter: (val: string) => void) => {
-    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    let sanitized = value;
-    
-    arabicNumbers.forEach((char, index) => {
-      const regex = new RegExp(char, 'g');
-      sanitized = sanitized.replace(regex, index.toString());
-    });
-
-    sanitized = sanitized.replace(/[^0-9.]/g, '');
-    setter(sanitized);
-  };
-
-  const handleCalculate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const prev = parseFloat(previousReading) || 0;
-    const curr = parseFloat(currentReading) || 0;
-    
-    if (curr <= prev) return;
-
-    const consumption = curr - prev;
-    const rate = meterType === 'electricity' ? 0.18 : 0.035;
-    const basePrice = consumption * rate;
-    const serviceFee = 10;
-    const subtotal = basePrice + serviceFee;
-    const vat = subtotal * 0.15;
-    const total = subtotal + vat;
-
-    setResult({
-      consumption,
-      basePrice: Number(basePrice.toFixed(2)),
-      serviceFee,
-      vat: Number(vat.toFixed(2)),
-      total: Number(total.toFixed(2)),
-    });
-  };
-
-  const handleReset = () => {
-    setPreviousReading('');
-    setCurrentReading('');
+  useUiLanguage();
+  const [params, setParams] = useSearchParams();
+  const { can } = usePermissions();
+  const [meters, setMeters] = useState<MeterRecord[]>([]);
+  const [properties, setProperties] = useState<PropertyRecord[]>([]);
+  const [newMeter, setNewMeter] = useState({
+    property_id: "",
+    meter_type: "electricity",
+    meter_number: "",
+  });
+  const [meterId, setMeterId] = useState("");
+  const [current, setCurrent] = useState("");
+  const [notes, setNotes] = useState("");
+  const [readings, setReadings] = useState<ReadingRecord[]>([]);
+  const [result, setResult] = useState<ReadingRecord | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [creatingMeter, setCreatingMeter] = useState(false);
+  const [showAddMeter, setShowAddMeter] = useState(false);
+  const [meterError, setMeterError] = useState("");
+  const [historyError, setHistoryError] = useState("");
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    setError("");
+    Promise.all([
+      realEstateService.getMeters(),
+      realEstateService.getProperties(),
+    ])
+      .then(([items, propertyItems]) => {
+        if (!live) return;
+        setMeters(items);
+        setProperties(propertyItems);
+        if (items.length)
+          setMeterId(
+            items.some((m) => String(m.id) === params.get("meter"))
+              ? params.get("meter")!
+              : String(items[0].id),
+          );
+        if (propertyItems.length)
+          setNewMeter((v) => ({
+            ...v,
+            property_id: String(propertyItems[0].id),
+          }));
+      })
+      .catch((e) => {
+        if (live) setError(errorText(e));
+      })
+      .finally(() => {
+        if (live) setBusy(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [revision]);
+  useEffect(() => {
+    if (!meterId) {
+      setReadings([]);
+      return;
+    }
     setResult(null);
-  };
-
+    setCurrent("");
+    setNotes("");
+    setReadings([]);
+    setHistoryError("");
+    setHistoryBusy(true);
+    let live = true;
+    realEstateService
+      .getMeterReadings(Number(meterId))
+      .then((r) => {
+        if (live) setReadings(r);
+      })
+      .catch((e) => {
+        if (live) setHistoryError(errorText(e));
+      })
+      .finally(() => {
+        if (live) setHistoryBusy(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [meterId, revision]);
+  useEffect(() => {
+    const requested = params.get("meter");
+    if (requested && meters.some((item) => String(item.id) === requested))
+      setMeterId(requested);
+  }, [params, meters]);
+  const meter = meters.find((item) => item.id === Number(meterId));
+  async function addMeter(e: FormEvent) {
+    e.preventDefault();
+    setMeterError("");
+    if (!newMeter.meter_number.trim()) {
+      setMeterError("Enter a meter number.");
+      return;
+    }
+    setCreatingMeter(true);
+    try {
+      const created = await realEstateService.createMeter({
+        property_id: Number(newMeter.property_id),
+        meter_type: newMeter.meter_type as "electricity" | "water" | "gas",
+        meter_number: newMeter.meter_number.trim(),
+      });
+      setMeters((items) => [...items, created]);
+      setMeterId(String(created.id));
+      setParams({ meter: String(created.id) });
+      setNewMeter((v) => ({ ...v, meter_number: "" }));
+      setShowAddMeter(false);
+    } catch (e: any) {
+      setMeterError(errorText(e));
+    } finally {
+      setCreatingMeter(false);
+    }
+  }
+  async function calculate(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setResult(null);
+    if (!meter) {
+      setError(tr("Select a registered meter first."));
+      return;
+    }
+    const value = Number(current);
+    if (
+      !current.trim() ||
+      !Number.isFinite(value) ||
+      value < meter.current_reading
+    ) {
+      setError(
+        "" +
+          tr("The current reading must be ") +
+          meter.current_reading +
+          tr(" or higher."),
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await realEstateService.calculateMeter(
+        meter.id,
+        value,
+        notes,
+      );
+      setResult(saved);
+      setCurrent("");
+      setNotes("");
+      setMeters((items) =>
+        items.map((item) =>
+          item.id === meter.id
+            ? {
+                ...item,
+                previous_reading: saved.previous_reading,
+                current_reading: saved.current_reading,
+              }
+            : item,
+        ),
+      );
+      setReadings((items) => [saved, ...items]);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || tr("Unable to save the reading."));
+    } finally {
+      setSaving(false);
+    }
+  }
+  const latest = readings[0];
+  const consumption =
+    current.trim() &&
+    meter &&
+    Number.isFinite(Number(current)) &&
+    Number(current) >= meter.current_reading
+      ? Number(current) - meter.current_reading
+      : null;
+  const MeterIcon =
+    meter?.meter_type === "water"
+      ? Droplets
+      : meter?.meter_type === "gas"
+        ? Flame
+        : Zap;
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-10" dir="rtl">
-      {/* عنوان الصفحة الفخم */}
-      <div className="bg-gradient-to-r from-teal-950 via-teal-900 to-[#0d2222] p-8 rounded-3xl text-white shadow-2xl flex items-center justify-between relative overflow-hidden border border-white/10">
-        <div className="absolute -left-10 -bottom-10 w-56 h-56 bg-amber-400/10 rounded-full blur-3xl"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-black tracking-tight mb-2 bg-gradient-to-r from-white via-amber-100 to-amber-400 bg-clip-text text-transparent">
-            حاسبة استهلاك العدادات الذكية
-          </h1>
-          <p className="text-teal-200/80 text-sm font-medium">
-            حساب دقيق وفوري لاستهلاك الكهرباء والمياه بمعايير اعتماد احترافية.
-          </p>
-        </div>
-        <div className="hidden md:flex items-center gap-3 bg-white/10 px-5 py-3 rounded-2xl backdrop-blur-xl border border-white/15 shadow-inner">
-          <Calculator className="w-6 h-6 text-amber-400" />
-          <span className="text-xs font-extrabold tracking-wide">حساب آلي معتمد</span>
-        </div>
-      </div>
+    <section
+      dir={direction()}
+      className="quiet-workspace mx-auto max-w-7xl space-y-6"
+    >
+      <PageHead
+        icon={PageTitleIcon}
+        title={tr("Meter readings & bills")}
+        description={tr(
+          "Select a meter, record its reading and review your saved bills.",
+        )}
+      >
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setRevision((v) => v + 1)}
+            disabled={busy || saving || creatingMeter}
+            aria-label={tr("Refresh data")}
+            title={tr("Refresh data")}
+          >
+            <RefreshCw size={17} className={busy ? "animate-spin" : ""} />
+          </button>
+          {can("meters", "create") && (
+            <AddButton
+              type="button"
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* نموذج الإدخال (مودرن) */}
-        <div className="lg:col-span-1 bg-white p-7 rounded-3xl shadow-xl shadow-gray-100 border border-gray-100/80 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-              <h3 className="font-black text-gray-900 text-base">بيانات العداد</h3>
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-            </div>
-            
-            <form onSubmit={handleCalculate} className="space-y-5">
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-2.5">اختر نوع العداد</label>
-                <div className="grid grid-cols-2 gap-3.5">
-                  <button
-                    type="button"
-                    onClick={() => setMeterType('electricity')}
-                    className={`relative p-4 rounded-2xl text-xs font-black transition-all border flex flex-col items-center justify-center gap-2.5 overflow-hidden ${
-                      meterType === 'electricity'
-                        ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-teal-950 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.02]'
-                        : 'bg-gray-50/80 text-gray-600 border-gray-200 hover:bg-gray-100/80'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                      meterType === 'electricity' ? 'bg-teal-950/10 text-teal-950' : 'bg-amber-100 text-amber-600'
-                    }`}>
-                      <Zap className="w-5 h-5 fill-current" />
-                    </div>
-                    <span>كهرباء</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMeterType('water')}
-                    className={`relative p-4 rounded-2xl text-xs font-black transition-all border flex flex-col items-center justify-center gap-2.5 overflow-hidden ${
-                      meterType === 'water'
-                        ? 'bg-gradient-to-br from-teal-800 to-teal-950 text-white border-teal-800 shadow-lg shadow-teal-900/20 scale-[1.02]'
-                        : 'bg-gray-50/80 text-gray-600 border-gray-200 hover:bg-gray-100/80'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                      meterType === 'water' ? 'bg-white/15 text-amber-400' : 'bg-teal-50 text-teal-700'
-                    }`}>
-                      <Droplets className="w-5 h-5 fill-current" />
-                    </div>
-                    <span>مياه</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-2">القراءة السابقة</label>
-                <input
-                  type="text"
-                  value={previousReading}
-                  onChange={(e) => handleInputChange(e.target.value, setPreviousReading)}
-                  placeholder="مثال: 1000"
-                  className="w-full px-4 py-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 text-sm font-bold text-gray-900 focus:outline-none focus:border-amber-400 focus:bg-white transition-all shadow-sm"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-2">القراءة الحالية</label>
-                <input
-                  type="text"
-                  value={currentReading}
-                  onChange={(e) => handleInputChange(e.target.value, setCurrentReading)}
-                  placeholder="مثال: 1250"
-                  className="w-full px-4 py-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 text-sm font-bold text-gray-900 focus:outline-none focus:border-amber-400 focus:bg-white transition-all shadow-sm"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 pt-3">
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-teal-900 to-[#0d2222] hover:from-teal-950 hover:to-teal-900 text-white font-black py-4 rounded-2xl text-sm transition-all shadow-lg shadow-teal-900/20 active:scale-95"
-                >
-                  احسب الآن
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="p-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all active:scale-95 shadow-sm"
-                  title="إعادة تعيين"
-                >
-                  <RefreshCcw className="w-5 h-5" />
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        {/* عرض النتائج والملخص المالي */}
-        <div className="lg:col-span-2 bg-white p-7 rounded-3xl shadow-xl shadow-gray-100 border border-gray-100/80 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-              <h3 className="font-black text-gray-900 text-base">نتائج الحساب والتكلفة</h3>
-              <span className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
-                meterType === 'electricity' 
-                  ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                  : 'bg-teal-50 text-teal-800 border-teal-200'
-              }`}>
-                {meterType === 'electricity' ? <Zap className="w-3.5 h-3.5 fill-current" /> : <Droplets className="w-3.5 h-3.5 fill-current" />}
-                {meterType === 'electricity' ? 'عداد الكهرباء' : 'عداد المياه'}
-              </span>
-            </div>
-
-            {result ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="bg-gradient-to-br from-teal-900 to-[#0d2222] p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
-                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
-                    <span className="text-xs font-bold text-teal-200/80 block mb-1">إجمالي الاستهلاك</span>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-black text-amber-400 tracking-tight">{result.consumption}</span>
-                      <span className="text-xs font-bold text-teal-200">{meterType === 'electricity' ? 'كيلوواط / ساعة' : 'متر مكعب'}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-6 rounded-3xl text-teal-950 shadow-lg relative overflow-hidden">
-                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/20 rounded-full blur-xl"></div>
-                    <span className="text-xs font-extrabold text-teal-950/80 block mb-1">المبلغ الإجمالي المستحق</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-black text-teal-950 tracking-tight">
-                        {result.total.toFixed(2)}
-                      </span>
-                      <span className="text-xs font-extrabold text-teal-950 mr-1">﷼</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50/80 p-6 rounded-3xl space-y-4 border border-gray-100 shadow-inner">
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-600 pb-3 border-b border-gray-200/60">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-teal-800"></span>
-                      تكلفة الاستهلاك الأساسي:
-                    </span>
-                    <span className="text-gray-900 font-extrabold text-sm">{result.basePrice} ﷼</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-600 pb-3 border-b border-gray-200/60">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      رسوم الخدمة الثابتة:
-                    </span>
-                    <span className="text-gray-900 font-extrabold text-sm">{result.serviceFee} ﷼</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-600">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                      ضريبة القيمة المضافة (15%):
-                    </span>
-                    <span className="text-gray-900 font-extrabold text-sm">{result.vat} ﷼</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="h-72 flex flex-col items-center justify-center bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 text-center p-8">
-                <div className="w-16 h-16 rounded-2xl bg-teal-50 text-teal-800 flex items-center justify-center mb-4 shadow-sm animate-pulse">
-                  <Zap className="w-8 h-8 fill-teal-800" />
-                </div>
-                <h4 className="font-extrabold text-gray-800 text-base mb-1">أدخل قراءات العداد للحساب الفوري</h4>
-                <p className="text-xs text-gray-400 max-w-xs">قم بتعبئة القراءة السابقة والحالية بالأرقام الإنجليزية في النموذج الجانبي واضغط على "احسب الآن".</p>
-              </div>
-            )}
-          </div>
-
-          {result && (
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-2 text-emerald-600 text-xs font-extrabold bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>تمت عملية الحساب بنجاح ودقة تامة وفقاً للتعرفة الرسمية المعتمدة.</span>
-            </div>
+              disabled={busy || saving}
+              onClick={() => {
+                setMeterError("");
+                setShowAddMeter(true);
+              }}
+            >
+              {tr("Add meter")}
+            </AddButton>
           )}
         </div>
-      </div>
-    </div>
+      </PageHead>
+      {error && <Notice message={error} error />}
+      {busy ? (
+        <Loading />
+      ) : meters.length === 0 ? (
+        <Empty>
+          {tr(
+            "No meters registered. Register your property's actual meter to start saving readings.",
+          )}
+        </Empty>
+      ) : (
+        <>
+          <section
+            className="panel flex flex-wrap items-center justify-between gap-5 p-5 sm:p-6"
+            aria-label={tr("Selected meter")}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="dashboard-icon rounded-2xl p-3">
+                <MeterIcon size={24} />
+              </span>
+              <div className="min-w-0">
+                <p className="muted text-xs">{tr("Selected meter")}</p>
+                <h2 className="mt-1 break-words text-lg font-black">
+                  {meter?.meter_number}
+                </h2>
+                <p className="muted mt-1 text-sm">
+                  {tr(typeLabels[meter?.meter_type || ""] || "Meter")} ·{" "}
+                  {meter?.property?.name ||
+                    properties.find((p) => p.id === meter?.property_id)?.name ||
+                    tr("Property")}
+                </p>
+              </div>
+            </div>
+            <label className="w-full text-sm font-bold sm:w-80">
+              {tr("Switch meter")}
+              <select
+                className="field"
+                value={meterId}
+                disabled={saving}
+                onChange={(e) => {
+                  setMeterId(e.target.value);
+                  setParams({ meter: e.target.value });
+                  setError("");
+                }}
+              >
+                {meters.map((m) => (
+                  <option value={m.id} key={m.id}>
+                    {m.meter_number} ·{" "}
+                    {tr(typeLabels[m.meter_type] || m.meter_type)} ·{" "}
+                    {m.property?.name ||
+                      properties.find((p) => p.id === m.property_id)?.name ||
+                      m.property_id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+          <QuietSection title={tr("Meter summary")}>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {[
+                {
+                  label: "Previous recorded reading:",
+                  value: meter ? number(meter.current_reading) : "—",
+                },
+                {
+                  label: "Latest saved bill",
+                  value: historyBusy
+                    ? "…"
+                    : latest
+                      ? money(latest.total_cost)
+                      : "—",
+                },
+                {
+                  label: "Last reading date",
+                  value: historyBusy
+                    ? "…"
+                    : latest
+                      ? day(latest.reading_date)
+                      : "—",
+                },
+              ].map((item, index) => (
+                <article
+                  className={`panel p-4 sm:p-5 ${index === 0 ? "col-span-2 sm:col-span-1" : ""}`}
+                  key={item.label}
+                >
+                  <p className="muted text-xs font-medium">{tr(item.label)}</p>
+                  <p className="mt-2 break-words text-xl font-black tabular-nums">
+                    {item.value}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </QuietSection>
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
+            <section className="panel overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-[var(--wameed-border)] p-5">
+                <Gauge size={20} className="dashboard-link" />
+                <h2 className="font-black">{tr("New reading")}</h2>
+              </div>
+              <form onSubmit={calculate} className="space-y-5 p-5 sm:p-6">
+                <label className="block text-sm font-bold">
+                  {tr("Current reading")}
+                  <input
+                    className="field tabular-nums"
+                    type="number"
+                    inputMode="decimal"
+                    lang="en"
+                    min={meter?.current_reading ?? 0}
+                    step="any"
+                    required
+                    value={current}
+                    onChange={(e) => setCurrent(e.target.value)}
+                    disabled={saving || !can("meters", "create")}
+                    aria-describedby="reading-hint"
+                  />
+                </label>
+                <p id="reading-hint" className="muted !mt-2 text-xs leading-6">
+                  {tr(
+                    "Enter the value shown on the meter. It must not be lower than the previous reading.",
+                  )}
+                </p>
+                <div
+                  className="dashboard-icon flex items-center justify-between gap-3 rounded-xl p-4"
+                  aria-live="polite"
+                >
+                  <span className="text-sm font-semibold">
+                    {tr("Consumption")}
+                  </span>
+                  <strong className="text-xl tabular-nums">
+                    {consumption === null ? "—" : number(consumption)}
+                  </strong>
+                </div>
+                <label className="block text-sm font-bold">
+                  {tr("Notes (optional)")}
+                  <textarea
+                    className="field resize-y"
+                    rows={3}
+                    maxLength={3000}
+                    value={notes}
+                    disabled={saving || !can("meters", "create")}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </label>
+                <p className="muted text-xs leading-6">
+                  {tr(
+                    "The final amount and VAT are calculated when the reading is saved.",
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="btn btn-primary flex-1"
+                    disabled={
+                      saving ||
+                      historyBusy ||
+                      consumption === null ||
+                      !can("meters", "create")
+                    }
+                  >
+                    {saving ? tr("Saving…") : tr("Calculate and save")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={saving}
+                    onClick={() => {
+                      setCurrent("");
+                      setNotes("");
+                      setResult(null);
+                      setError("");
+                    }}
+                  >
+                    {tr("Clear fields")}
+                  </button>
+                </div>
+                {!can("meters", "create") && (
+                  <p className="muted text-xs">
+                    {tr("Your role can view readings but cannot add them.")}
+                  </p>
+                )}
+              </form>
+            </section>
+            <div className="min-w-0 space-y-4">
+              {result && (
+                <div
+                  role="status"
+                  className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4"
+                >
+                  <p className="mb-4 flex items-center gap-2 text-sm font-bold dashboard-link">
+                    <CheckCircle2 size={18} />
+                    {tr("Reading saved successfully")}
+                  </p>
+                  <dl className="grid grid-cols-2 gap-4 text-sm">
+                    {[
+                      ["Consumption", number(result.units_consumed)],
+                      ["Total", money(result.total_cost)],
+                      ["Before VAT", money(result.cost_before_tax)],
+                      ["VAT", money(result.tax_amount)],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="muted text-xs">{tr(label)}</dt>
+                        <dd className="mt-1 font-bold">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              <QuietSection
+                title={tr("Saved readings and bills")}
+                className="min-w-0"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--wameed-border)] p-5">
+                  <h2 className="flex items-center gap-3 font-black">
+                    <History size={20} className="dashboard-link" />
+                    {tr("Reading history")}
+                  </h2>
+                  <span className="muted text-xs">
+                    {historyBusy ? "…" : number(readings.length)}
+                  </span>
+                </div>
+                {historyBusy ? (
+                  <div className="p-4">
+                    <Loading />
+                  </div>
+                ) : historyError ? (
+                  <div className="p-4">
+                    <Notice message={historyError} error />
+                    <button
+                      type="button"
+                      className="btn mt-3"
+                      onClick={() => setRevision((v) => v + 1)}
+                    >
+                      {tr("Retry")}
+                    </button>
+                  </div>
+                ) : readings.length === 0 ? (
+                  <div className="empty-state">
+                    <History size={30} className="mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">
+                      {tr("No saved readings for this meter.")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto p-3 sm:p-0">
+                    <table className="w-full text-start text-sm">
+                      <thead className="bg-[var(--wameed-bg)]">
+                        <tr>
+                          {[
+                            "Date",
+                            "Previous",
+                            "Current",
+                            "Consumption",
+                            "Total",
+                          ].map((label) => (
+                            <th
+                              key={label}
+                              className="p-4 text-start text-xs font-semibold muted"
+                            >
+                              {tr(label)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {readings.map((r) => (
+                          <tr
+                            key={r.id}
+                            className="border-t border-[var(--wameed-border)]"
+                          >
+                            <td data-label={tr("Date")} className="p-4">
+                              {day(r.reading_date)}
+                            </td>
+                            <td
+                              data-label={tr("Previous")}
+                              className="p-4 tabular-nums"
+                            >
+                              {number(r.previous_reading)}
+                            </td>
+                            <td
+                              data-label={tr("Current")}
+                              className="p-4 tabular-nums"
+                            >
+                              {number(r.current_reading)}
+                            </td>
+                            <td
+                              data-label={tr("Consumption")}
+                              className="p-4 tabular-nums"
+                            >
+                              {number(r.units_consumed)}
+                            </td>
+                            <td
+                              data-label={tr("Total")}
+                              className="p-4 font-bold tabular-nums"
+                            >
+                              {money(r.total_cost)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </QuietSection>
+            </div>
+          </div>
+        </>
+      )}
+      {showAddMeter && (
+        <Modal
+          title={tr("Add meter")}
+          onClose={() => {
+            if (!creatingMeter) setShowAddMeter(false);
+          }}
+        >
+          <form onSubmit={addMeter} className="space-y-5">
+            <p className="muted text-sm leading-7">
+              {tr(
+                "Link the meter to a property to keep its readings and bills together.",
+              )}
+            </p>
+            {meterError && <Notice message={meterError} error />}
+            <label className="block text-sm font-bold">
+              {tr("Property")}
+              <select
+                required
+                className="field"
+                value={newMeter.property_id}
+                disabled={creatingMeter}
+                onChange={(e) =>
+                  setNewMeter({ ...newMeter, property_id: e.target.value })
+                }
+              >
+                <option value="">{tr("Select property")}</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-bold">
+                {tr("Meter type")}
+                <select
+                  className="field"
+                  value={newMeter.meter_type}
+                  disabled={creatingMeter}
+                  onChange={(e) =>
+                    setNewMeter({ ...newMeter, meter_type: e.target.value })
+                  }
+                >
+                  {Object.entries(typeLabels).map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {tr(label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm font-bold">
+                {tr("Meter number")}
+                <input
+                  className="field"
+                  required
+                  maxLength={50}
+                  disabled={creatingMeter}
+                  value={newMeter.meter_number}
+                  onChange={(e) =>
+                    setNewMeter({ ...newMeter, meter_number: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+            {properties.length === 0 && (
+              <p className="muted text-sm">
+                {tr(
+                  "Add a property first. Every meter must be linked to an existing property.",
+                )}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="btn"
+                disabled={creatingMeter}
+                onClick={() => setShowAddMeter(false)}
+              >
+                {tr("Cancel")}
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={creatingMeter || properties.length === 0}
+              >
+                {creatingMeter ? tr("Registering…") : tr("Register meter")}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </section>
   );
 }

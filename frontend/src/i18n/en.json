@@ -1,7 +1,7 @@
 {
   "navigation": {
     "home": "Home",
-    "dashboard": "Dashboard",
+    "dashboard": "Home",
     "meterCalculation": "Meter Calculation",
     "logout": "Logout",
     "login": "Login",
@@ -16,11 +16,11 @@
     "authenticationDesc": "Secure user authentication with JWT tokens and password hashing",
     "userManagement": "User Management",
     "userManagementDesc": "Create and manage user accounts with role-based access control",
-    "dashboard": "Dashboard",
+    "dashboard": "Home",
     "dashboardDesc": "Access personalized dashboard after authentication",
     "signIn": "Sign In",
     "signUp": "Sign Up",
-    "goToDashboard": "Go to Dashboard"
+    "goToDashboard": "Go to Home"
   },
   "login": {
     "title": "Sign In",
@@ -55,7 +55,7 @@
     "failedToCreate": "Failed to create account. Please try again."
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Home",
     "calculateMeterBill": "Calculate Meter Bill",
     "totalProperties": "Total Properties",
     "totalTenants": "Total Tenants",

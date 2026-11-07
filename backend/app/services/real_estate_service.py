@@ -29,14 +29,22 @@ from app.schemas.real_estate import (
 class RealEstateService:
     """Service layer for real estate operations."""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, customer_account_id: Optional[int] = None):
         self.db = db
+        self.customer_account_id = customer_account_id
+
+    def _query(self, model):
+        query = self.db.query(model)
+        if self.customer_account_id is not None:
+            query = query.filter(model.customer_account_id == self.customer_account_id)
+        return query
     
     # ==================== Property Methods ====================
     
     def create_property(self, property_data: PropertyCreate) -> Property:
         """Create a new property."""
         property_obj = Property(
+            customer_account_id=self.customer_account_id,
             name=property_data.name,
             description=property_data.description,
             property_type=property_data.property_type,
@@ -54,11 +62,14 @@ class RealEstateService:
     
     def get_property(self, property_id: int) -> Optional[Property]:
         """Get a property by ID."""
-        return self.db.query(Property).filter(Property.id == property_id).first()
+        return self._query(Property).filter(Property.id == property_id).first()
     
-    def get_all_properties(self, skip: int = 0, limit: int = 100) -> List[Property]:
+    def get_all_properties(self, skip: int = 0, limit: int = 100, archived_only: bool = False, include_archived: bool = False) -> List[Property]:
         """Get all properties with pagination."""
-        return self.db.query(Property).offset(skip).limit(limit).all()
+        query = self._query(Property)
+        if archived_only: query = query.filter(Property.archived_at.is_not(None))
+        elif not include_archived: query = query.filter(Property.archived_at.is_(None))
+        return query.order_by(Property.id).offset(skip).limit(limit).all()
     
     def update_property(self, property_id: int, property_data: PropertyUpdate) -> Optional[Property]:
         """Update a property."""
@@ -78,6 +89,10 @@ class RealEstateService:
         property_obj = self.get_property(property_id)
         if not property_obj:
             return False
+        from app.routers.record_lifecycle import dependencies
+        if dependencies(self.db, property_obj, "properties"):
+            from fastapi import HTTPException
+            raise HTTPException(409, "Linked records prevent permanent deletion. Archive this record instead.")
         self.db.delete(property_obj)
         self.db.commit()
         return True
@@ -87,7 +102,7 @@ class RealEstateService:
         property_obj = self.get_property(property_id)
         if not property_obj:
             return {}
-        tenants = self.db.query(Tenant).filter(Tenant.property_id == property_id).all()
+        tenants = self._query(Tenant).filter(Tenant.property_id == property_id).all()
         occupied_units = len(tenants)
         return {
             "property_id": property_id,
@@ -104,6 +119,7 @@ class RealEstateService:
     def create_tenant(self, tenant_data: TenantCreate) -> Tenant:
         """Create a new tenant."""
         tenant_obj = Tenant(
+            customer_account_id=self.customer_account_id,
             name=tenant_data.name,
             phone=tenant_data.phone,
             email=tenant_data.email,
@@ -121,15 +137,15 @@ class RealEstateService:
     
     def get_tenant(self, tenant_id: int) -> Optional[Tenant]:
         """Get a tenant by ID."""
-        return self.db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        return self._query(Tenant).filter(Tenant.id == tenant_id).first()
     
     def get_all_tenants(self, skip: int = 0, limit: int = 100) -> List[Tenant]:
         """Get all tenants with pagination."""
-        return self.db.query(Tenant).offset(skip).limit(limit).all()
+        return self._query(Tenant).offset(skip).limit(limit).all()
     
     def get_tenants_by_property(self, property_id: int) -> List[Tenant]:
         """Get all tenants for a property."""
-        return self.db.query(Tenant).filter(Tenant.property_id == property_id).all()
+        return self._query(Tenant).filter(Tenant.property_id == property_id).all()
     
     def update_tenant(self, tenant_id: int, tenant_data: TenantUpdate) -> Optional[Tenant]:
         """Update a tenant."""
@@ -160,12 +176,13 @@ class RealEstateService:
         property_obj = self.get_property(meter_data.property_id)
         if not property_obj:
             raise ValueError("Property not found")
-        existing_meters = self.db.query(Meter).filter(
+        existing_meters = self._query(Meter).filter(
             Meter.property_id == meter_data.property_id
         ).count()
         if existing_meters >= 2:
             raise ValueError("Property already has 2 meters. Maximum 2 meters per property.")
         meter_obj = Meter(
+            customer_account_id=self.customer_account_id,
             property_id=meter_data.property_id,
             meter_type=meter_data.meter_type,
             meter_number=meter_data.meter_number,
@@ -183,15 +200,15 @@ class RealEstateService:
     
     def get_meter(self, meter_id: int) -> Optional[Meter]:
         """Get a meter by ID."""
-        return self.db.query(Meter).filter(Meter.id == meter_id).first()
+        return self._query(Meter).filter(Meter.id == meter_id).first()
     
     def get_all_meters(self, skip: int = 0, limit: int = 100) -> List[Meter]:
         """Get all meters with pagination."""
-        return self.db.query(Meter).offset(skip).limit(limit).all()
+        return self._query(Meter).offset(skip).limit(limit).all()
     
     def get_meters_by_property(self, property_id: int) -> List[Meter]:
         """Get all meters for a property."""
-        return self.db.query(Meter).filter(Meter.property_id == property_id).all()
+        return self._query(Meter).filter(Meter.property_id == property_id).all()
     
     def update_meter(self, meter_id: int, meter_data: MeterUpdate) -> Optional[Meter]:
         """Update a meter."""
@@ -221,13 +238,13 @@ class RealEstateService:
     
     def get_meter_readings(self, meter_id: int, skip: int = 0, limit: int = 100) -> List[MeterReading]:
         """Get all readings for a meter."""
-        return self.db.query(MeterReading).filter(
+        return self._query(MeterReading).filter(
             MeterReading.meter_id == meter_id
         ).order_by(MeterReading.reading_date.desc()).offset(skip).limit(limit).all()
     
     def get_latest_reading(self, meter_id: int) -> Optional[MeterReading]:
         """Get the latest reading for a meter."""
-        return self.db.query(MeterReading).filter(
+        return self._query(MeterReading).filter(
             MeterReading.meter_id == meter_id
         ).order_by(MeterReading.reading_date.desc()).first()
     
@@ -293,6 +310,7 @@ class RealEstateService:
             meter_obj.lock_until = datetime.utcnow() + timedelta(days=30)
         
         reading_obj = MeterReading(
+            customer_account_id=self.customer_account_id,
             meter_id=meter_id,
             current_reading=current_reading,
             previous_reading=previous_reading,

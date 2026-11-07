@@ -1,5 +1,7 @@
 from app.models.user import User
+from app.models.user import CustomerAccount, AuditLog
 from app.models.real_estate import (
+    Contract,
     Property,
     Tenant,
     Meter,
@@ -12,6 +14,9 @@ from app.models.real_estate import (
 
 __all__ = [
     "User",
+    "CustomerAccount",
+    "AuditLog",
+    "Contract",
     "Property",
     "Tenant",
     "Meter",
@@ -21,3 +26,5 @@ __all__ = [
     "PropertyType",
     "MeterReadingType",
 ]
+
+from app.models.operations import Unit, MaintenanceRequest, Attachment

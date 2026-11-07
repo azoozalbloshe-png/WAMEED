@@ -61,3 +61,11 @@ logs/
 
 # Docker
 docker-compose.override.yml
+
+# Local signing key and migration backups
+.jwt-secret
+*.db.pre_saas_backup_*
+
+# Private database snapshots and metadata
+backups/
+*.partial

@@ -63,30 +63,31 @@ def test_login_success(client, test_user):
     """Test successful login."""
     response = client.post(
         "/api/auth/login",
-        data={
-            "username": test_user.email,
+        json={
+            "email": test_user.email,
             "password": "testpass123"
         }
     )
-    
+
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "access_token" in data
     assert "token_type" in data
     assert data["token_type"] == "bearer"
-    assert "user_id" in data
+    assert "user" in data
+    assert data["user"]["email"] == test_user.email
 
 
 def test_login_wrong_password(client, test_user):
     """Test login with wrong password."""
     response = client.post(
         "/api/auth/login",
-        data={
-            "username": test_user.email,
+        json={
+            "email": test_user.email,
             "password": "wrongpassword"
         }
     )
-    
+
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -94,10 +95,10 @@ def test_login_nonexistent_user(client):
     """Test login with non-existent user."""
     response = client.post(
         "/api/auth/login",
-        data={
-            "username": "nonexistent@example.com",
+        json={
+            "email": "nonexistent@example.com",
             "password": "password123"
         }
     )
-    
+
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

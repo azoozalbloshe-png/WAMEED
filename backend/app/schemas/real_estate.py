@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, ConfigDict, field_validator
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.real_estate import (
     PropertyType,
     ContractStatus,
@@ -9,8 +9,20 @@ from app.models.real_estate import (
 )
 
 
+class RealEstateModel(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
+
+    @field_validator('*')
+    @classmethod
+    def normalize_datetimes(cls, value):
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+
+
 # Subscription Tier Info Schema
-class SubscriptionTierInfo(BaseModel):
+class SubscriptionTierInfo(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for subscription tier information."""
     tier: SubscriptionTier
     name: str
@@ -19,7 +31,8 @@ class SubscriptionTierInfo(BaseModel):
 
 
 # Subscription Info Schema
-class SubscriptionInfo(BaseModel):
+class SubscriptionInfo(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for subscription information."""
     property_id: int
     property_name: str
@@ -32,14 +45,15 @@ class SubscriptionInfo(BaseModel):
 
 
 # Property Schemas
-class PropertyBase(BaseModel):
+class PropertyBase(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Base schema for property data."""
     name: str = Field(..., min_length=2, max_length=100)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=5000)
     property_type: PropertyType
-    address: Optional[str] = None
-    city: Optional[str] = None
-    area: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=255)
+    city: Optional[str] = Field(None, max_length=100)
+    area: Optional[str] = Field(None, max_length=100)
     floor: Optional[int] = None
     total_units: int = Field(default=0, ge=0)
     monthly_rent: float = Field(default=0.0, ge=0)
@@ -50,20 +64,22 @@ class PropertyCreate(PropertyBase):
     pass
 
 
-class PropertyUpdate(BaseModel):
+class PropertyUpdate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for updating a property."""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=5000)
     property_type: Optional[PropertyType] = None
-    address: Optional[str] = None
-    city: Optional[str] = None
-    area: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=255)
+    city: Optional[str] = Field(None, max_length=100)
+    area: Optional[str] = Field(None, max_length=100)
     floor: Optional[int] = None
     total_units: Optional[int] = Field(None, ge=0)
     monthly_rent: Optional[float] = Field(None, ge=0)
 
 
 class PropertyResponse(PropertyBase):
+    archived_at: Optional[datetime] = None
     """Schema for property response."""
     id: int
     occupied_units: int = 0
@@ -71,12 +87,12 @@ class PropertyResponse(PropertyBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, allow_inf_nan=False, str_strip_whitespace=True)
 
 
 # Tenant Schemas
-class TenantBase(BaseModel):
+class TenantBase(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Base schema for tenant data."""
     name: str = Field(..., min_length=2, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
@@ -94,7 +110,8 @@ class TenantCreate(TenantBase):
     pass
 
 
-class TenantUpdate(BaseModel):
+class TenantUpdate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for updating a tenant."""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
@@ -112,12 +129,45 @@ class TenantResponse(TenantBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, allow_inf_nan=False, str_strip_whitespace=True)
+
+
+class ContractCreate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
+    unit_id: Optional[int] = Field(None, gt=0)
+    property_id: int = Field(..., gt=0)
+    tenant_id: int = Field(..., gt=0)
+    start_date: datetime
+    end_date: datetime
+    monthly_rent: float = Field(..., ge=0)
+    deposit_amount: float = Field(default=0, ge=0)
+    notes: Optional[str] = Field(None, max_length=5000)
+
+
+class RentPaymentCreate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
+    contract_id: int = Field(..., gt=0)
+    amount: float = Field(..., gt=0)
+    paid_at: datetime
+    method: Optional[str] = Field(None, max_length=40)
+    transaction_code: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=5000)
+
+
+class PropertyExpenseCreate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
+    unit_id: Optional[int] = Field(None, gt=0)
+    property_id: int = Field(..., gt=0)
+    amount: float = Field(..., gt=0)
+    category: str = Field(..., min_length=1, max_length=80)
+    spent_at: datetime
+    description: Optional[str] = Field(None, max_length=5000)
+    invoice_reference: Optional[str] = Field(None, max_length=100)
 
 
 # Meter Schemas
-class MeterBase(BaseModel):
+class MeterBase(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Base schema for meter data."""
     property_id: int = Field(..., gt=0)
     meter_type: MeterReadingType
@@ -129,7 +179,8 @@ class MeterCreate(MeterBase):
     pass
 
 
-class MeterUpdate(BaseModel):
+class MeterUpdate(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for updating a meter."""
     meter_type: Optional[MeterReadingType] = None
     current_reading: Optional[float] = Field(None, ge=0)
@@ -149,12 +200,12 @@ class MeterResponse(MeterBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, allow_inf_nan=False, str_strip_whitespace=True)
 
 
 # Meter Reading Schemas
-class MeterReadingBase(BaseModel):
+class MeterReadingBase(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Base schema for meter reading."""
     current_reading: float = Field(..., ge=0)
     previous_reading: float = Field(..., ge=0)
@@ -163,7 +214,7 @@ class MeterReadingBase(BaseModel):
 class MeterReadingCreate(MeterReadingBase):
     """Schema for creating a new meter reading."""
     meter_id: int = Field(..., gt=0)
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=5000)
 
 
 class MeterReadingResponse(MeterReadingBase):
@@ -176,15 +227,15 @@ class MeterReadingResponse(MeterReadingBase):
     tax_amount: float
     total_cost: float
     calculated_by: Optional[str] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=5000)
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, allow_inf_nan=False, str_strip_whitespace=True)
 
 
 # Tier Breakdown Schema
-class TierBreakdown(BaseModel):
+class TierBreakdown(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for tier breakdown."""
     tier_name: str
     price_per_unit: float
@@ -194,7 +245,8 @@ class TierBreakdown(BaseModel):
 
 
 # Calculation Result Schema
-class CalculationResult(BaseModel):
+class CalculationResult(RealEstateModel):
+    model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
     """Schema for calculation result with tier breakdown."""
     meter_id: int
     meter_number: str
@@ -212,5 +264,4 @@ class CalculationResult(BaseModel):
     lock_expiry_date: Optional[datetime] = None
     tier_breakdown: list[TierBreakdown]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, allow_inf_nan=False, str_strip_whitespace=True)

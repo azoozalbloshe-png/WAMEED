@@ -1,7 +1,7 @@
 {
   "navigation": {
     "home": "الرئيسية",
-    "dashboard": "لوحة التحكم",
+    "dashboard": "الرئيسية",
     "meterCalculation": "حساب الفاتورة",
     "logout": "تسجيل الخروج",
     "login": "تسجيل الدخول",
@@ -16,11 +16,11 @@
     "authenticationDesc": "مصادقة المستخدمين الآمنة باستخدام رموز JWT وتشفير كلمات المرور",
     "userManagement": "إدارة المستخدمين",
     "userManagementDesc": "إنشاء وإدارة حسابات المستخدمين مع التحكم في الصلاحيات",
-    "dashboard": "لوحة التحكم",
-    "dashboardDesc": "الوصول إلى لوحة التحكم الشخصية بعد المصادقة",
+    "dashboard": "الرئيسية",
+    "dashboardDesc": "الوصول إلى الرئيسية الشخصية بعد المصادقة",
     "signIn": "تسجيل الدخول",
     "signUp": "إنشاء حساب",
-    "goToDashboard": "الذهاب إلى لوحة التحكم"
+    "goToDashboard": "الذهاب إلى الرئيسية"
   },
   "login": {
     "title": "تسجيل الدخول",
@@ -55,7 +55,7 @@
     "failedToCreate": "فشل إنشاء الحساب. يرجى المحاولة مرة أخرى."
   },
   "dashboard": {
-    "title": "لوحة التحكم",
+    "title": "الرئيسية",
     "calculateMeterBill": "حساب فاتورة العداد",
     "totalProperties": "إجمالي العقارات",
     "totalTenants": "إجمالي المستأجرين",

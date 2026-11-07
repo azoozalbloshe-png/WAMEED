@@ -1,0 +1,154 @@
+import { useLanguage as useUiLanguage } from "../../contexts/LanguageContext";
+import { tr, direction } from "../../i18n/runtime";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { LogIn, Loader2, Eye, EyeOff } from "lucide-react";
+export default function Login() {
+  useUiLanguage();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      await login(identifier.trim(), password, rememberMe);
+      // All authenticated users land on a route that is actually registered.
+      navigate("/dashboard");
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        tr("Unable to sign in. Check your email or username and password.");
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center bg-[#111827] p-4 font-sans"
+      dir={direction()}
+    >
+      <div className="max-w-md w-full p-8 bg-[#1e293b] rounded-2xl shadow-xl border border-gray-800">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#F5E6C8]/10 text-[#F5E6C8] mb-4">
+            <LogIn size={32} />
+          </div>
+          <h1 className="text-3xl font-bold text-[#F5E6C8] mb-2">
+            {tr("Sign in")}
+          </h1>
+          <p className="text-gray-400 text-sm">
+            {" "}
+            {tr("Welcome back! Enter your details to continue.")}{" "}
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded-xl mb-6 text-sm text-center">
+            {tr(error)}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              {" "}
+              {tr("Email or username")}{" "}
+            </label>
+            <input
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              required
+              className="w-full bg-[#111827] border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#F5E6C8] transition-colors"
+              placeholder="name@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              {" "}
+              {tr("Password")}{" "}
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-[#111827] border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#F5E6C8] transition-colors"
+                placeholder={tr(
+                  "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+              >
+                {!showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded bg-[#111827] border-gray-700 text-[#F5E6C8] focus:ring-0 me-2"
+              />{" "}
+              {tr("Remember me")}{" "}
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-[#F5E6C8] hover:underline"
+            >
+              {" "}
+              {tr("Forgot password?")}{" "}
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center px-4 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg text-gray-900 bg-[#F5E6C8] hover:bg-[#e4d3b3] disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="animate-spin me-2" size={20} />
+                {tr("Signing in\u2026")}{" "}
+              </>
+            ) : (
+              <>
+                <LogIn className="me-2" size={20} />
+                {tr("Sign in")}{" "}
+              </>
+            )}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-gray-400">
+          {" "}
+          {tr("Don't have an account?")}{" "}
+          <Link
+            to="/register"
+            className="font-medium text-[#F5E6C8] hover:underline"
+          >
+            {" "}
+            {tr("Create an account")}{" "}
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}

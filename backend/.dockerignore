@@ -1,0 +1,14 @@
+venv
+.venv*
+__pycache__
+*.pyc
+*.db*
+.env*
+.jwt-secret
+work
+backups
+.git
+
+# Private database snapshots and metadata
+backups/
+*.partial

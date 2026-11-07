@@ -1,153 +1,423 @@
-import { 
-  Building2, 
-  Users, 
-  FileText, 
-  CreditCard, 
-  TrendingUp, 
-  Bell, 
-  ArrowUpRight 
-} from 'lucide-react';
-
+import CashTrend from "../components/platform/CashTrend";
+import { numberLocale } from "../i18n/runtime";
+import { dateLocale } from "../i18n/runtime";
+import { useLanguage as useUiLanguage } from "../contexts/LanguageContext";
+import { tr, direction } from "../i18n/runtime";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowDownLeft,
+  ArrowUpLeft,
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  AlertCircle,
+  RefreshCw,
+  Wallet,
+  FilePlus2,
+  Gauge,
+  Plus,
+} from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../contexts/PermissionsContext";
+import BrandLogo from "../components/brand/BrandLogo";
+import NotificationCenter from "../components/platform/NotificationCenter";
+import {
+  DashboardSummary,
+  realEstateService,
+} from "../services/realEstateService";
+const number = (value: number) =>
+  new Intl.NumberFormat(numberLocale(), { maximumFractionDigits: 2 }).format(
+    value,
+  );
+const heroDate = (value: Date, language: string, calendar: string) =>
+  new Intl.DateTimeFormat(language, {
+    calendar,
+    numberingSystem: "latn",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    ...(calendar === "islamic-umalqura" ? { era: "short" as const } : {}),
+    timeZone: "Asia/Riyadh",
+  }).format(value);
+const month = () =>
+  new Intl.DateTimeFormat(dateLocale(), {
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Riyadh",
+  }).format(new Date());
 export default function Dashboard() {
-  const stats = {
-    totalRevenue: 24500,
-    activeContracts: 12,
-    managedProperties: 18,
-    totalTenants: 36,
-  };
-
+  const { language } = useUiLanguage();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const hour = Number(
+    new Intl.DateTimeFormat("en", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: "Asia/Riyadh",
+    }).format(now),
+  );
+  const greeting = hour >= 5 && hour < 12 ? "Good morning," : "Good evening,";
+  const weekday = new Intl.DateTimeFormat(language, {
+    weekday: "long",
+    timeZone: "Asia/Riyadh",
+  }).format(now);
+  const { user } = useAuth();
+  const { can } = usePermissions();
+  const shortcuts = [
+    {
+      title: "Record payment",
+      href: "/payments?action=create",
+      icon: Plus,
+      allowed: can("payments", "create"),
+    },
+    {
+      title: "Add contract",
+      href: "/contracts?action=create",
+      icon: FilePlus2,
+      allowed: can("contracts", "create"),
+    },
+    {
+      title: "Record meter reading",
+      href: "/calculation",
+      icon: Gauge,
+      allowed: can("meters", "create"),
+    },
+  ].filter((item) => item.allowed);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const mounted = useRef(false);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await realEstateService.getDashboardSummary();
+      if (mounted.current) {
+        setSummary(result);
+        setUpdatedAt(new Date());
+      }
+    } catch (e: unknown) {
+      if (mounted.current) {
+        const detail = (
+          e as {
+            response?: {
+              data?: {
+                detail?: unknown;
+              };
+            };
+          }
+        )?.response?.data?.detail;
+        setError(
+          typeof detail === "string"
+            ? detail
+            : tr(
+                "Unable to load the dashboard. Check your connection and try again.",
+              ),
+        );
+      }
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    mounted.current = true;
+    void refresh();
+    return () => {
+      mounted.current = false;
+    };
+  }, [refresh]);
+  const net = summary
+    ? summary.collected_this_month - summary.expenses_this_month
+    : 0;
+  const financials = summary
+    ? [
+        {
+          get title() {
+            return tr("Collections");
+          },
+          value: summary.collected_this_month,
+          get caption() {
+            return tr("Rent payments recorded this month through today");
+          },
+          href: "/payments",
+          icon: ArrowDownLeft,
+          tone: "income",
+        },
+        {
+          get title() {
+            return tr("Expenses");
+          },
+          value: summary.expenses_this_month,
+          get caption() {
+            return tr("Property expenses recorded this month through today");
+          },
+          href: "/payments",
+          icon: ArrowUpLeft,
+          tone: "expense",
+        },
+        {
+          get title() {
+            return tr("Net cash movement");
+          },
+          value: net,
+          get caption() {
+            return tr("Recorded collections minus expenses");
+          },
+          href: "/reports",
+          icon: Wallet,
+          tone: "net",
+        },
+      ]
+    : [];
   return (
-    <div className="space-y-8" dir="rtl">
-      {/* الترحيب */}
-      <div className="bg-gradient-to-r from-teal-900 to-[#0d2222] p-8 rounded-3xl text-white shadow-xl flex items-center justify-between relative overflow-hidden">
-        <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-amber-400/10 rounded-full blur-2xl"></div>
+    <div
+      className="wameed-dashboard mx-auto max-w-7xl space-y-7"
+      dir={direction()}
+    >
+      <header className="dashboard-hero dashboard-welcome relative overflow-hidden rounded-3xl p-5 text-white sm:p-6">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <BrandLogo />
+              <p className="hero-greeting text-sm font-semibold text-emerald-100">
+                {tr(greeting)}{" "}
+                <bdi>{user?.full_name || user?.username || tr("there")}</bdi>.
+              </p>
+            </div>
+            <h1 className="text-xl font-black leading-snug sm:text-2xl">
+              {tr("Your property business at a glance")}
+            </h1>
+          </div>
+          <div className="dashboard-welcome-date flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/80">
+            <div className="flex items-center gap-2 font-bold text-[var(--brand-on-dark)]">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              <span>{weekday}</span>
+            </div>
+            <dl className="flex flex-wrap gap-x-4 gap-y-1">
+              <div className="flex items-center gap-2">
+                <dt className="sr-only">{tr("Gregorian")}</dt>
+                <dd>{heroDate(now, language, "gregory")}</dd>
+              </div>
+              <div className="flex items-center gap-2">
+                <dt className="sr-only">{tr("Hijri")}</dt>
+                <dd>{heroDate(now, language, "islamic-umalqura")}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-black tracking-tight mb-2">عَينك على أرقامك وأعمالك.</h1>
-          <p className="text-teal-200/80 text-sm font-medium">Everything Under Control.</p>
+          <h2 className="text-xl font-black">{tr("Financial overview")}</h2>
+          <p className="dashboard-muted mt-1 text-sm">
+            {month()}{" "}
+            {tr("\u00B7 Through today \u00B7 From your actual records")}{" "}
+          </p>
         </div>
-        <div className="hidden md:flex items-center gap-3 bg-white/10 px-4 py-2.5 rounded-2xl backdrop-blur-md border border-white/10">
-          <Bell className="w-5 h-5 text-amber-400 animate-bounce" />
-          <span className="text-xs font-bold">النظام يعمل بكفاءة تامة</span>
-        </div>
-      </div>
-
-      {/* بطاقات الإحصائيات الرئيسية */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* المدفوعات */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-gray-400">المدفوعات هذا الشهر</span>
-            <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
-              <CreditCard className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-gray-900">
-              {stats.totalRevenue.toLocaleString()}
-            </h3>
-            <span className="text-xs font-bold text-gray-500">ر.س</span>
-          </div>
-          <div className="mt-3 flex items-center gap-1 text-emerald-600 text-xs font-bold">
-            <ArrowUpRight className="w-4 h-4" />
-            <span>12% عن الشهر السابق</span>
-          </div>
-        </div>
-
-        {/* العقود النشطة */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-gray-400">العقود النشطة</span>
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <FileText className="w-5 h-5" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-gray-900">{stats.activeContracts}</h3>
-          <div className="mt-3 flex items-center gap-1 text-emerald-600 text-xs font-bold">
-            <ArrowUpRight className="w-4 h-4" />
-            <span>8% نمو جديد</span>
-          </div>
-        </div>
-
-        {/* العقارات المُدارة */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-gray-400">العقارات المُدارة</span>
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Building2 className="w-5 h-5" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-gray-900">{stats.managedProperties}</h3>
-          <div className="mt-3 flex items-center gap-1 text-emerald-600 text-xs font-bold">
-            <ArrowUpRight className="w-4 h-4" />
-            <span>5% توسع إضافي</span>
-          </div>
-        </div>
-
-        {/* المستأجرين */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-gray-400">المستأجرين</span>
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-gray-900">{stats.totalTenants}</h3>
-          <div className="mt-3 flex items-center gap-1 text-emerald-600 text-xs font-bold">
-            <ArrowUpRight className="w-4 h-4" />
-            <span>10% نسبة الإشغال</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {updatedAt && (
+            <p className="dashboard-muted text-xs" role="status">
+              {loading
+                ? tr("Refreshing data\u2026")
+                : error
+                  ? tr("Showing the last successfully loaded data")
+                  : "" +
+                    tr("Last refreshed ") +
+                    updatedAt.toLocaleTimeString(numberLocale(), {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "Asia/Riyadh",
+                    })}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="dashboard-button inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            {loading ? tr("Loading") : tr("Refresh data")}
+          </button>
         </div>
       </div>
 
-      {/* قسم الرسم البياني والتنبيهات */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* إيراداتك الشهرية */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-extrabold text-gray-900 text-base">إيراداتك الشهرية</h3>
-            <span className="text-xs font-bold bg-gray-100 px-3 py-1.5 rounded-xl text-gray-600">هذا الشهر</span>
-          </div>
-          <div className="h-64 flex items-center justify-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-            <div className="text-center">
-              <TrendingUp className="w-8 h-8 text-teal-700 mx-auto mb-2 opacity-50" />
-              <p className="text-xs font-bold text-gray-500">منحنى الإيرادات جاهز للربط الفعلي</p>
+      {error && (
+        <div
+          role="alert"
+          className="dashboard-error flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-5"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className="mt-0.5 h-5 w-5 shrink-0"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="font-bold">
+                {" "}
+                {tr("Unable to")} {summary ? tr("Refresh") : tr("Load")}{" "}
+                {tr("Data")}{" "}
+              </p>
+              <p className="mt-1 text-sm">{tr(error)}</p>
             </div>
           </div>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void refresh()}
+            className="min-h-11 rounded-xl border border-current px-4 py-2 text-sm font-bold disabled:opacity-50"
+          >
+            {" "}
+            {tr("Retry")}{" "}
+          </button>
         </div>
+      )}
 
-        {/* أهم التنبيهات */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-extrabold text-gray-900 text-base">أهم التنبيهات</h3>
-            <span className="text-xs font-bold text-amber-600 cursor-pointer hover:underline">عرض الكل</span>
+      {!summary && loading && (
+        <section
+          aria-label={tr("Loading your dashboard")}
+          role="status"
+          aria-busy="true"
+          className="space-y-5"
+        >
+          <span className="sr-only">{tr("Loading your dashboard")}</span>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="dashboard-panel animate-pulse rounded-2xl p-6"
+              >
+                <div className="dashboard-skeleton h-4 w-24 rounded" />
+                <div className="dashboard-skeleton mt-6 h-9 w-36 rounded" />
+                <div className="dashboard-skeleton mt-4 h-3 w-3/4 rounded" />
+              </div>
+            ))}
           </div>
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 font-bold text-xs">✓</div>
-              <div>
-                <h4 className="text-xs font-bold text-gray-900">تم استلام دفعة إيجار جديدة</h4>
-                <p className="text-[10px] text-gray-500 mt-0.5">منذ ساعتين</p>
-              </div>
-            </div>
+        </section>
+      )}
 
-            <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-100 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold text-xs">!</div>
-              <div>
-                <h4 className="text-xs font-bold text-gray-900">تنتهي عقد الإيجار قريباً</h4>
-                <p className="text-[10px] text-gray-500 mt-0.5">خلال 7 أيام</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 font-bold text-xs">+</div>
-              <div>
-                <h4 className="text-xs font-bold text-gray-900">تم اضافة مستأجر جديد</h4>
-                <p className="text-[10px] text-gray-500 mt-0.5">منذ يوم</p>
-              </div>
-            </div>
-          </div>
+      {summary && (
+        <div className="space-y-7" aria-busy={loading}>
+          <section
+            aria-label={tr("This month's financial metrics")}
+            className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4"
+          >
+            {financials.map(
+              ({ title, value, caption, href, icon: Icon, tone }) => (
+                <Link
+                  to={href}
+                  key={title}
+                  className={`dashboard-finance dashboard-finance-${tone} group relative overflow-hidden rounded-2xl border p-4 transition hover:-translate-y-0.5 sm:p-5 ${tone === "net" ? "col-span-2 md:col-span-1" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-bold">{title}</h3>
+                    <span className="dashboard-metric-icon flex h-10 w-10 items-center justify-center rounded-xl">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  </div>
+                  <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <strong
+                      className="break-words text-2xl font-black tabular-nums sm:text-3xl"
+                      dir="ltr"
+                    >
+                      {number(value)}
+                    </strong>
+                    <span className="text-xs opacity-70">{tr("SAR")}</span>
+                  </p>
+                  <p className="mt-2 text-xs leading-5 opacity-75">{caption}</p>
+                  <span className="mt-3 flex items-center gap-2 text-xs font-bold">
+                    {" "}
+                    {tr("View")} {tone === "net" ? tr("Report") : tr("Records")}
+                    <ArrowRight
+                      className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Link>
+              ),
+            )}
+          </section>
+          {can("contracts") && can("payments") && can("expenses") && (
+            <CashTrend revision={updatedAt?.getTime() || 0} />
+          )}
         </div>
+      )}
+
+      <div
+        className={`grid items-start gap-6 ${shortcuts.length ? "lg:grid-cols-[minmax(0,1.6fr)_minmax(16rem,1fr)]" : ""}`}
+      >
+        <NotificationCenter revision={updatedAt?.getTime()} />
+        {shortcuts.length > 0 && (
+          <section aria-labelledby="quick-actions-title" className="space-y-4">
+            <h2 id="quick-actions-title" className="text-xl font-black">
+              {tr("Quick actions")}
+            </h2>
+            <div className="dashboard-panel space-y-2 rounded-2xl border p-3">
+              {shortcuts.map(({ title, href, icon: Icon }) => (
+                <Link
+                  key={href}
+                  to={href}
+                  className="dashboard-action flex min-h-16 items-center gap-3 rounded-xl p-3 transition"
+                >
+                  <span className="dashboard-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                    <Icon size={20} aria-hidden="true" />
+                  </span>
+                  <span className="flex-1 text-sm font-bold">{tr(title)}</span>
+                  <ArrowRight
+                    size={17}
+                    className="shrink-0 rtl:rotate-180"
+                    aria-hidden="true"
+                  />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
+      {summary && (
+        <>
+          {summary.properties === 0 && (
+            <section className="dashboard-panel flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-dashed p-6">
+              <div className="flex items-start gap-4">
+                <span className="dashboard-icon rounded-xl p-3">
+                  <Building2 className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="font-black">
+                    {" "}
+                    {tr(
+                      "Your workspace is ready. Start with your properties.",
+                    )}{" "}
+                  </h2>
+                  <p className="dashboard-muted mt-2 max-w-lg text-sm leading-7">
+                    {" "}
+                    {tr(
+                      "Your account has no properties yet. Metrics will appear automatically as you add your actual records.",
+                    )}{" "}
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/properties"
+                className="dashboard-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold"
+              >
+                {" "}
+                {tr("Go to properties")}{" "}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }

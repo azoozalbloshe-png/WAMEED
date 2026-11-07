@@ -28,11 +28,35 @@ class PropertyType(str, enum.Enum):
     COMMERCIAL = "commercial"
 
 
+class Contract(Base):
+    """Contract model representing property rental contracts."""
+    __tablename__ = "contracts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    unit_id = Column(Integer, ForeignKey("property_units.id"), nullable=True, index=True)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    status = Column(SQLEnum(ContractStatus), default=ContractStatus.ACTIVE)
+    monthly_rent = Column(Float, default=0.0)
+    deposit_amount = Column(Float, default=0.0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    property = relationship("Property", back_populates="contracts")
+    tenant = relationship("Tenant", back_populates="contracts")
+
+
 class Property(Base):
     """Property model representing real estate properties."""
     __tablename__ = "properties"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     property_type = Column(SQLEnum(PropertyType), nullable=False)
@@ -47,6 +71,8 @@ class Property(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    archived_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
     # Relationships
     tenants = relationship("Tenant", back_populates="property", cascade="all, delete-orphan")
     contracts = relationship("Contract", back_populates="property", cascade="all, delete-orphan")
@@ -58,6 +84,7 @@ class Tenant(Base):
     __tablename__ = "tenants"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), nullable=True)
     email = Column(String(255), nullable=True)
@@ -88,6 +115,7 @@ class Meter(Base):
     __tablename__ = "meters"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
     meter_type = Column(SQLEnum(MeterReadingType), nullable=False)
     meter_number = Column(String(50), nullable=False, unique=True)
@@ -110,6 +138,7 @@ class MeterReading(Base):
     __tablename__ = "meter_readings"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
     meter_id = Column(Integer, ForeignKey("meters.id"), nullable=False)
     reading_date = Column(DateTime(timezone=True), server_default=func.now())
     current_reading = Column(Float, nullable=False)
@@ -126,3 +155,38 @@ class MeterReading(Base):
 
     # Relationships
     meter = relationship("Meter", back_populates="readings")
+
+
+class RentPayment(Base):
+    """A rent payment recorded against an existing rental contract."""
+    __tablename__ = "rent_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True)
+    amount = Column(Float, nullable=False)
+    paid_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    method = Column(String(40), nullable=True)
+    transaction_code = Column(String(100), nullable=True, unique=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    contract = relationship("Contract")
+
+
+class PropertyExpense(Base):
+    """An expense recorded against an existing property."""
+    __tablename__ = "property_expenses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_account_id = Column(Integer, ForeignKey("customer_accounts.id"), nullable=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("property_units.id"), nullable=True, index=True)
+    amount = Column(Float, nullable=False)
+    category = Column(String(80), nullable=False)
+    spent_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    description = Column(Text, nullable=True)
+    invoice_reference = Column(String(100), nullable=True, unique=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    property = relationship("Property")

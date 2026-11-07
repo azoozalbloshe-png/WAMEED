@@ -3,6 +3,7 @@ Pytest configuration and shared fixtures for backend tests.
 """
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 from app.main import app
@@ -11,7 +12,7 @@ from app.config import settings
 
 # Create in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -31,10 +32,7 @@ def db():
 def client(db):
     """Create a test client with database dependency."""
     def override_get_db():
-        try:
-            yield db
-        finally:
-            db.close()
+        yield db
     
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
@@ -62,8 +60,8 @@ def auth_token(client, test_user):
     """Get authentication token for a test user."""
     response = client.post(
         "/api/auth/login",
-        data={
-            "username": test_user.email,
+        json={
+            "email": test_user.email,
             "password": "testpass123"
         }
     )

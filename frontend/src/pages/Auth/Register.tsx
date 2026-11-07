@@ -1,230 +1,322 @@
-import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
-import { useAuth } from "../../contexts/AuthContext"
-import { useLanguage } from "../../i18n/LanguageContext"
-import { CheckCircle, Loader2, UserPlus } from "lucide-react"
+import PasswordInput from "../../components/platform/PasswordInput";
+import AuthLayout, { AuthHeader } from "../../components/brand/AuthLayout";
+import { useLanguage as useUiLanguage } from "../../contexts/LanguageContext";
+import { tr } from "../../i18n/runtime";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { CheckCircle, Loader2, UserPlus } from "lucide-react";
 // Static translations to avoid require in browser
 const translations = {
   en: {
     register: {
-      title: 'Create Account',
-      welcome: 'Join us today and get started',
-      username: 'Username',
-      usernamePlaceholder: 'johndoe',
-      email: 'Email',
-      password: 'Password',
-      passwordPlaceholder: '••••••••',
-      confirmPassword: 'Confirm Password',
-      createAccount: 'Create Account',
-      creatingAccount: 'Creating account...',
-      alreadyHaveAccount: 'Already have an account?',
-      signIn: 'Sign in',
-      passwordsDoNotMatch: 'Passwords do not match',
-      passwordMinLength: 'Password must be at least 6 characters',
-      accountCreated: 'Account Created!',
-      redirecting: 'You will be redirected to your dashboard shortly...',
-      failedToCreate: 'Failed to create account. Please try again.',
+      get title() {
+        return tr("Create Account");
+      },
+      get welcome() {
+        return tr("Join us today and get started");
+      },
+      get username() {
+        return tr("Username");
+      },
+      get usernamePlaceholder() {
+        return tr("johndoe");
+      },
+      get email() {
+        return tr("Email");
+      },
+      get password() {
+        return tr("Password");
+      },
+      get passwordPlaceholder() {
+        return tr("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022");
+      },
+      get confirmPassword() {
+        return tr("Confirm Password");
+      },
+      get createAccount() {
+        return tr("Create Account");
+      },
+      get creatingAccount() {
+        return tr("Creating account...");
+      },
+      get alreadyHaveAccount() {
+        return tr("Already have an account?");
+      },
+      get signIn() {
+        return tr("Sign in");
+      },
+      get passwordsDoNotMatch() {
+        return tr("Passwords do not match");
+      },
+      get passwordMinLength() {
+        return tr("Password must be at least 10 characters");
+      },
+      get accountCreated() {
+        return tr("Account Created!");
+      },
+      get redirecting() {
+        return tr("You will be redirected to your dashboard shortly...");
+      },
+      get failedToCreate() {
+        return tr("Failed to create account. Please try again.");
+      },
     },
   },
   ar: {
     register: {
-      title: 'إنشاء حساب',
-      welcome: 'انضم إلينا اليوم وابدأ رحلتك',
-      username: 'اسم المستخدم',
-      usernamePlaceholder: 'johndoe',
-      email: 'البريد الإلكتروني',
-      password: 'كلمة المرور',
-      passwordPlaceholder: '••••••••',
-      confirmPassword: 'تأكيد كلمة المرور',
-      createAccount: 'إنشاء حساب',
-      creatingAccount: 'جاري إنشاء الحساب...',
-      alreadyHaveAccount: 'لديك حساب بالفعل؟',
-      signIn: 'تسجيل الدخول',
-      passwordsDoNotMatch: 'كلمات المرور غير متطابقة',
-      passwordMinLength: 'يجب أن تكون كلمة المرور 6 أحرف على الأقل',
-      accountCreated: 'تم إنشاء الحساب بنجاح!',
-      redirecting: 'سيتم تحويلك إلى لوحة التحكم قريباً...',
-      failedToCreate: 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.',
+      get title() {
+        return tr("Create account");
+      },
+      get welcome() {
+        return tr("Create your account and get started");
+      },
+      get username() {
+        return tr("Username");
+      },
+      get usernamePlaceholder() {
+        return tr("johndoe");
+      },
+      get email() {
+        return tr("Email address");
+      },
+      get password() {
+        return tr("Password");
+      },
+      get passwordPlaceholder() {
+        return tr("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022");
+      },
+      get confirmPassword() {
+        return tr("Confirm password");
+      },
+      get createAccount() {
+        return tr("Create account");
+      },
+      get creatingAccount() {
+        return tr("Creating account\u2026");
+      },
+      get alreadyHaveAccount() {
+        return tr("Already have an account?");
+      },
+      get signIn() {
+        return tr("Sign in");
+      },
+      get passwordsDoNotMatch() {
+        return tr("Passwords do not match");
+      },
+      get passwordMinLength() {
+        return tr("Password must contain at least 10 characters");
+      },
+      get accountCreated() {
+        return tr("Account created!");
+      },
+      get redirecting() {
+        return tr("You will be redirected to your dashboard shortly\u2026");
+      },
+      get failedToCreate() {
+        return tr("Unable to create your account. Please try again.");
+      },
     },
   },
-}
-
+};
 export default function Register() {
-  const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-  const { register } = useAuth()
-  const navigate = useNavigate()
-
-  const { language } = useLanguage()
-
+  useUiLanguage();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  const { language } = useLanguage();
   const t = (key: string) => {
-    const keys = key.split('.')
-    let value: any = translations[language as keyof typeof translations] || translations.en
-    keys.forEach((k) => (value = value?.[k]))
-    return value || key
-  }
+    const keys = key.split(".");
+    let value: any =
+      translations[language as keyof typeof translations] || translations.en;
+    keys.forEach((k) => (value = value?.[k]));
+    return value || key;
+  };
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
     if (password !== confirmPassword) {
-      setError(t('register.passwordsDoNotMatch'))
-      return
+      setError(t("register.passwordsDoNotMatch"));
+      return;
     }
-    if (password.length < 6) {
-      setError(t('register.passwordMinLength'))
-      return
+    if (password.length < 10) {
+      setError(t("register.passwordMinLength"));
+      return;
     }
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      await register(email, username, password)
-      setSuccess(true)
-      setTimeout(() => { navigate("/dashboard") }, 1500)
+      await register(email, username, password, phone);
+      setSuccess(true);
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
     } catch (err) {
-      setError(t('register.failedToCreate'))
+      setError(t("register.failedToCreate"));
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
+  };
   if (success) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="max-w-md w-full animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full mb-4">
-              <CheckCircle className="text-green-600 dark:text-green-400" size={32} />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Account Created!
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              You will be redirected to your dashboard shortly...
-            </p>
-            <Loader2 className="animate-spin mx-auto mt-6 text-blue-600" size={32} />
+      <AuthLayout compact>
+        <div className="text-center">
+          <AuthHeader title={tr("Account Created!")} />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full mb-4">
+            <CheckCircle className="text-green-600 " size={32} />
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="max-w-md w-full animate-slide-up">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full mb-4">
-              <UserPlus className="text-green-600 dark:text-green-400" size={32} />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Create Account
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Join us today and get started
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="johndoe"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('register.email')}
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('register.password')}
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('register.confirmPassword')}
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="animate-spin ml-2" size={20} />
-                  {t('register.creatingAccount')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="ml-2" size={20} />
-                  {t('register.createAccount')}
-                </>
-              )}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            {t('register.alreadyHaveAccount')}
-            <Link
-              to="/login"
-              className="font-medium text-green-600 hover:text-green-500 dark:text-green-400"
-            >
-              {t('register.signIn')}
-            </Link>
+          <p className="auth-muted ">
+            {tr("You will be redirected to your dashboard shortly...")}
           </p>
+          <Loader2
+            className="animate-spin mx-auto mt-6 text-amber-400"
+            size={32}
+          />
         </div>
-    </div>
-  </div>
-)
+      </AuthLayout>
+    );
+  }
+  return (
+    <AuthLayout compact>
+      <AuthHeader
+        title={tr("Create Account")}
+        description={tr("Join us today and get started")}
+      />
+
+      <form onSubmit={handleSubmit} className="auth-register-form">
+        <label className="col-span-2 block text-sm font-medium">
+          {language === "ar"
+            ? tr("Phone number (optional)")
+            : "Mobile number (optional)"}
+          <input
+            type="tel"
+            lang="en"
+            dir="ltr"
+            autoComplete="tel"
+            pattern="\+[1-9][0-9]{7,14}"
+            placeholder="+9665xxxxxxxx"
+            className="auth-input"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/[\s()-]/g, ""))}
+          />
+          <span className="mt-1 block text-xs auth-muted">
+            {language === "ar"
+              ? "يمكنك تأكيد رقمك لاحقًا من الإعدادات."
+              : "Verify your number later in Settings."}
+          </span>
+        </label>
+        {error && (
+          <div className="col-span-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+            <p className="text-red-600 dark:text-red-400 text-sm">
+              {tr(error)}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label
+            htmlFor="username"
+            className="block text-sm font-medium auth-label"
+          >
+            {tr("Username")}
+          </label>
+          <input
+            id="username"
+            type="text"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="auth-input"
+            placeholder={tr("johndoe")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium auth-label"
+          >
+            {t("register.email")}
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="auth-input"
+            placeholder={tr("you@example.com")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium auth-label"
+          >
+            {t("register.password")}
+          </label>
+          <PasswordInput
+            id="password"
+
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="auth-input"
+            placeholder={tr("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="confirmPassword"
+            className="block text-sm font-medium auth-label"
+          >
+            {t("register.confirmPassword")}
+          </label>
+          <PasswordInput
+            id="confirmPassword"
+
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="auth-input"
+            placeholder={tr("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="auth-primary col-span-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="animate-spin me-2" size={20} />
+              {t("register.creatingAccount")}
+            </>
+          ) : (
+            <>
+              <UserPlus className="me-2" size={20} />
+              {t("register.createAccount")}
+            </>
+          )}
+        </button>
+      </form>
+
+      <p className="mt-6 flex flex-wrap items-center justify-center gap-1 text-center text-sm auth-muted">
+        {t("register.alreadyHaveAccount")}
+        <Link to="/login" className="font-medium auth-link ">
+          {t("register.signIn")}
+        </Link>
+      </p>
+    </AuthLayout>
+  );
 }
