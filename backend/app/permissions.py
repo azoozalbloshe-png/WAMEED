@@ -18,7 +18,7 @@ async def require_business_permission(request: Request, user=Depends(get_current
     if user.role == 'super_admin' and user.is_superuser:
         return
     account = db.get(CustomerAccount, user.customer_account_id)
-    if request.method not in ('GET', 'HEAD') and account and account.subscription_expires_at and account.subscription_expires_at <= datetime.utcnow():
+    if request.method not in ('GET', 'HEAD') and account and account.subscription_expires_at and account.subscription_expires_at <= datetime.now(account.subscription_expires_at.tzinfo):
         raise HTTPException(402, 'Your subscription expired. You can still view your records. Contact administration to renew.')
     resource = request.url.path.removeprefix('/api/real-estate/').split('/')[0]
     action = 'read' if request.method in ('GET', 'HEAD') else 'create' if request.method == 'POST' else 'delete' if request.method == 'DELETE' else 'update'
@@ -40,5 +40,5 @@ def ensure(db, user, resource, action='read'):
     if not allowed(db,user,resource,action):
         raise HTTPException(403, 'You do not have permission to perform this action.')
     account = db.get(CustomerAccount,user.customer_account_id)
-    if action != 'read' and account and account.subscription_expires_at and account.subscription_expires_at <= datetime.utcnow():
+    if action != 'read' and account and account.subscription_expires_at and account.subscription_expires_at <= datetime.now(account.subscription_expires_at.tzinfo):
         raise HTTPException(402,'Your subscription expired. Contact administration to renew.')

@@ -11,6 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { usePermissions } from "../../contexts/PermissionsContext";
 import BrandLogo from "../brand/BrandLogo";
+import WameedAssistant from "../platform/WameedAssistant";
 import GlobalSearch from "../platform/GlobalSearch";
 import InterfacePreferences from "../platform/InterfacePreferences";
 import SectionTabs from "./SectionTabs";
@@ -188,6 +189,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <WameedAssistant />
     </div>
   );
 }

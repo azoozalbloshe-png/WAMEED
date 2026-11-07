@@ -52,3 +52,13 @@ def test_smtp_uses_trusted_certificates(monkeypatch, security, port):
     assert mailer.send_reset_link('recipient@example.com', 'test-token')
     assert len(contexts) == len(delivered) == 1
     assert delivered[0]['To'] == 'recipient@example.com'
+
+
+def test_recovery_code_email_contains_code_not_reset_link(monkeypatch):
+    delivered=[]
+    monkeypatch.setattr(mailer,'send_message',lambda *args:delivered.append(args) or True)
+    assert mailer.send_reset_code('client@example.com','012345')
+    recipient,subject,body=delivered[0]
+    assert recipient=='client@example.com'
+    assert '012345' in body and '10' in body and 'WAMEED' in subject
+    assert '/reset-password' not in body

@@ -92,6 +92,7 @@ class RecoveryRequest(Base):
     request_hash = Column(String(64), unique=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     method = Column(String(10), nullable=False)
+    code_hash = Column(String(64), nullable=True)
     destination = Column(String(254), nullable=False)
     destination_hash = Column(String(64), nullable=False, index=True)
     client_hash = Column(String(64), nullable=False, index=True)

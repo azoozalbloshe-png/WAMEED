@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy import func
 from app.config import settings
-from app.models.user import User, RecoveryRequest, PasswordReset
+from app.models.user import User, RecoveryRequest
 from app.services.auth_service import AuthService
 from app import mailer, phone_provider
 
@@ -40,14 +40,13 @@ def start(db, data, client):
     user = matches[0] if len(matches) == 1 else None
     request_id = secrets.token_urlsafe(32)
     entry = RecoveryRequest(request_hash=digest(request_id), user_id=user.id if user else None, method=data.method, destination=destination, destination_hash=destination_hash, client_hash=client_hash, user_version=user.token_version if user else None, expires_at=now+timedelta(minutes=10))
+    code = f"{secrets.randbelow(1000000):06d}" if data.method == "email" else None
+    if code: entry.code_hash = digest(request_id + ":" + code)
     db.add(entry)
     db.commit()
     if user and data.method == 'email':
-        service = AuthService(db)
-        token = service.create_reset_token(user.email)
-        service.save_reset_token(token, user.email)
-        if not mailer.send_reset_link(user.email, token):
-            db.query(PasswordReset).filter(PasswordReset.token_hash == hashlib.sha256(token.encode()).hexdigest()).update({'used_at': now})
+        if not mailer.send_reset_code(user.email, code):
+            entry.used_at = now
             db.commit()
     elif user:
         try:
@@ -62,7 +61,7 @@ def start(db, data, client):
 
 def confirm(db, data):
     now = datetime.utcnow()
-    entry = db.query(RecoveryRequest).filter(RecoveryRequest.request_hash == digest(data.request_id), RecoveryRequest.method.in_(['sms', 'whatsapp']), RecoveryRequest.used_at.is_(None), RecoveryRequest.expires_at > now).first()
+    entry = db.query(RecoveryRequest).filter(RecoveryRequest.request_hash == digest(data.request_id), RecoveryRequest.used_at.is_(None), RecoveryRequest.expires_at > now).first()
     invalid = 'The code is invalid or expired. Request a new code if needed.'
     if not entry or entry.attempts >= 5:
         raise HTTPException(400, invalid)
@@ -74,14 +73,21 @@ def confirm(db, data):
     if not claimed:
         raise HTTPException(400, invalid)
     user = db.get(User, entry.user_id) if entry.user_id else None
-    if not user or not user.is_active or not user.phone_verified_at or user.phone != entry.destination or user.token_version != entry.user_version:
+    if not user or not user.is_active or user.token_version != entry.user_version:
         raise HTTPException(400, invalid)
-    if not phone_provider.recovery_configured(entry.method):
-        raise HTTPException(503, 'Verification service is currently unavailable.')
-    try:
-        approved = phone_provider.check_recovery(entry.destination, data.code)
-    except phone_provider.ProviderUnavailable:
-        raise HTTPException(503, 'Verification is unavailable right now. Try again later.')
+    if entry.method == 'email':
+        if user.email.strip().lower() != entry.destination or not entry.code_hash:
+            raise HTTPException(400, invalid)
+        approved = hmac.compare_digest(entry.code_hash, digest(data.request_id + ':' + data.code))
+    else:
+        if not user.phone_verified_at or user.phone != entry.destination:
+            raise HTTPException(400, invalid)
+        if not phone_provider.recovery_configured(entry.method):
+            raise HTTPException(503, 'Verification service is currently unavailable.')
+        try:
+            approved = phone_provider.check_recovery(entry.destination, data.code)
+        except phone_provider.ProviderUnavailable:
+            raise HTTPException(503, 'Verification is unavailable right now. Try again later.')
     if not approved:
         raise HTTPException(400, invalid)
     # Consume the browser challenge and create the reset grant in one transaction.
@@ -91,6 +97,6 @@ def confirm(db, data):
         raise HTTPException(400, invalid)
     service = AuthService(db)
     token = service.create_reset_token(user.email)
-    service.save_reset_token(token, user.email, commit=False, phone=entry.destination)
+    service.save_reset_token(token, user.email, commit=False, phone=entry.destination if entry.method != "email" else None)
     db.commit()
     return {'reset_token': token}

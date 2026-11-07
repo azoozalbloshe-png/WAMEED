@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: wameed-free
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BACKUP_ENABLED
+        value: "false"
+      - key: EMAIL_DELIVERY
+        value: google_script
+      - key: GOOGLE_MAIL_URL
+        sync: false
+      - key: GOOGLE_MAIL_SECRET
+        sync: false
+      - key: SMTP_FROM
+        value: WAMEED <wameedplus@gmail.com>
+      - key: FRONTEND_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        value: ""

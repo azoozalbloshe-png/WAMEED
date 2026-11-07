@@ -44,6 +44,11 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000"
     ]
     
+    EMAIL_DELIVERY: str = "smtp"
+    GOOGLE_MAIL_URL: str = ""
+    GOOGLE_MAIL_SECRET: str = ""
+    FRONTEND_DIST_DIR: str = ""
+
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_FROM: str = ""
@@ -59,6 +64,8 @@ class Settings(BaseSettings):
 
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:5173"
+    OPENAI_API_KEY: str = ""
+    ASSISTANT_MODEL: str = "gpt-4.1-mini"
     
     class Config:
         env_file = ".env"

@@ -1031,5 +1031,6 @@
   "Close notifications": "إغلاق الإشعارات",
   "Unable to load notifications.": "تعذّر تحميل الإشعارات.",
   "No alerts need follow-up right now.": "لا توجد إشعارات تحتاج متابعة حاليًا.",
-  "View all notifications": "عرض كل الإشعارات"
+  "View all notifications": "عرض كل الإشعارات",
+  "Code sent to your registered email": "رمز على البريد المسجل في حسابك"
 }

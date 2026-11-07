@@ -5,11 +5,12 @@ from app.security import RequestLimits
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, real_estate, admin, verification, operations, record_lifecycle, backup_routes
 from app.config import settings
+from app.routers import assistant
 from app.database import engine
 from app.models.real_estate import RentPayment, PropertyExpense
 from app.models.user import User, CustomerAccount, AuditLog
 from app.models import real_estate as real_estate_models
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, insert
 
 app = FastAPI(
     title="Wameed API",
@@ -44,6 +45,7 @@ app.include_router(record_lifecycle.router, tags=["Record lifecycle"])
 app.include_router(backup_routes.router, tags=["Backups"])
 app.include_router(admin.router, tags=["Developer"])
 app.include_router(verification.router, tags=["Verification"])
+app.include_router(assistant.router, tags=["Assistant"])
 
 
 def migrate_additive_schema():
@@ -63,6 +65,7 @@ def migrate_additive_schema():
         },
     }
     additions["password_resets"] = {"issued_email": "VARCHAR(254)", "issued_phone": "VARCHAR(30)", "user_version": "INTEGER"}
+    additions["recovery_requests"] = {"code_hash": "VARCHAR(64)"}
     additions["properties"] = {"archived_at": "DATETIME"}
     additions["contracts"] = {"unit_id": "INTEGER REFERENCES property_units(id)"}
     additions["property_expenses"] = {"unit_id": "INTEGER REFERENCES property_units(id)"}
@@ -78,7 +81,7 @@ def migrate_additive_schema():
             current = {column["name"] for column in inspect(engine).get_columns(table)}
             for name, sql_type in columns.items():
                 if name not in current:
-                    conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{name}" {sql_type}'))
+                    conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{name}" {sql_type.replace("DATETIME", "TIMESTAMP") if engine.dialect.name == "postgresql" else sql_type}'))
         for table, suffix in (("contracts", "unit_id, start_date, end_date"), ("rent_payments", "paid_at"), ("property_expenses", "spent_at")):
             if table in inspector.get_table_names():
                 conn.execute(text(f'CREATE INDEX IF NOT EXISTS "idx_{table}_account_dates" ON "{table}" (customer_account_id, {suffix})'))
@@ -92,8 +95,8 @@ def migrate_additive_schema():
         for user in users:
             account_id = conn.execute(text("SELECT customer_account_id FROM users WHERE id=:id"), {"id": user["id"]}).scalar()
             if account_id is None:
-                result = conn.execute(text("INSERT INTO customer_accounts(name, owner_user_id, status, subscription_tier) VALUES (:name,:owner,'active','basic')"), {"name": user["username"], "owner": user["id"]})
-                conn.execute(text("UPDATE users SET customer_account_id=:account WHERE id=:id"), {"account": result.lastrowid, "id": user["id"]})
+                account_id = conn.execute(insert(CustomerAccount.__table__).values(name=user['username'], owner_user_id=user['id'], status='active', subscription_tier='basic').returning(CustomerAccount.id)).scalar_one()
+                conn.execute(text("UPDATE users SET customer_account_id=:account WHERE id=:id"), {"account": account_id, "id": user["id"]})
 
         owner = next((u for u in users if u["is_superuser"]), None)
         if owner:
@@ -125,4 +128,24 @@ def health_check():
 
 @app.get("/")
 def root():
+    if settings.FRONTEND_DIST_DIR:
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(settings.FRONTEND_DIST_DIR) / 'index.html')
     return {"message": "Welcome to the API", "docs": "/docs"}
+
+# Same-origin frontend for the free Render service; API routes retain JSON 404s.
+if settings.FRONTEND_DIST_DIR:
+    from pathlib import Path
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    dist = Path(settings.FRONTEND_DIST_DIR).resolve()
+    app.mount('/assets', StaticFiles(directory=dist / 'assets'), name='assets')
+
+    @app.get('/{path:path}', include_in_schema=False)
+    def frontend(path: str):
+        if path == 'api' or path.startswith('api/'):
+            raise HTTPException(404, 'Not Found')
+        file = (dist / path).resolve()
+        if not file.is_relative_to(dist): raise HTTPException(404, 'Not Found')
+        return FileResponse(file if file.is_file() else dist / 'index.html')

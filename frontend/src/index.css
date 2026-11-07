@@ -1492,3 +1492,27 @@ html[dir="rtl"] .skip-link:focus {
 @media (max-width: 767px) {
  .alerts-dropdown { position: fixed; left: 12px; right: 12px; inset-inline-end: 12px; top: calc(var(--app-header-height, 170px) + 8px); width: auto; max-height: calc(100dvh - var(--app-header-height, 170px) - 20px); }
 }
+
+
+/* Compact assistant chat control. */
+.wameed-assistant-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 50%;
+  background: var(--brand-nav);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(4, 47, 46, .18);
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.wameed-assistant-launcher:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(4, 47, 46, .24); }
+.wameed-assistant-launcher:focus-visible { outline: 3px solid var(--brand-link); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .wameed-assistant-launcher { transition: none; }
+  .wameed-assistant-launcher:hover { transform: none; }
+}

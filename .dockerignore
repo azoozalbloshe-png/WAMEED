@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/.venv*
+**/__pycache__
+**/.pytest_cache
+**/.env*
+**/.jwt-secret
+**/*.db
+**/*.sqlite*
+**/backups
+**/work
+**/dist
+real_estate_app
+real-estate-management

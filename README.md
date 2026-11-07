@@ -193,3 +193,50 @@ docker compose up --build -d
 ### لغة الواجهة
 
 تدعم الواجهة العربية والإنجليزية عبر زر اللغة أعلى الموقع، بما في ذلك نسخة الجوال وصفحات الدخول والاستعادة. يحفظ الاختيار على الجهاز ويتزامن بين تبويبات المتصفح، ويبدّل اتجاه الواجهة تلقائيًا دون إعادة تحميلها أو مسح النماذج. تبقى الأرقام `0123456789` في اللغتين. عناوين تصدير Excel واتجاه الورقة يتبعان اللغة المختارة؛ بيانات العملاء المكتوبة لا تُترجم أو تُعدل. مصدر نصوص العربية هو `frontend/src/i18n/platform.ar.json`، وتسميات التصدير في `backend/app/locales/ar.json`.
+
+
+## Wameed assistant
+
+The floating assistant is available to signed-in users in Arabic and English.
+Without an API key it provides explicitly labelled, fixed summaries: overdue rent
+as of today, active contracts ending in the next 30 days, month-to-date finances,
+and non-archived properties. Each query enforces account ownership and existing
+resource permissions. It never modifies business records. Chat is held in memory
+and cleared on sign-out or page reload; it is not saved in browser storage.
+
+Optional AI chat: set `OPENAI_API_KEY` in the backend environment and restart the
+API. `ASSISTANT_MODEL` defaults to `gpt-4.1-mini` and can be changed to a compatible
+Responses API model available to your account. Never use a `VITE_` variable for
+the key. AI requests send the question, recent conversation, and the authorized
+query results needed to OpenAI, with `store: false`. This does not imply zero
+retention by the provider. The UI discloses the provider when AI mode is active.
+API billing is separate from this application's direct summaries.
+
+AI tools use the existing financial calculations, validated dates (maximum ten
+years), and a fixed read-only query schema. They do not run generated SQL or accept
+account identifiers from the model. Results show at most 50 rows and 20 verified
+record links; totals and counts include all matches. Requests are limited to 20
+per user per 15 minutes, with bounded model calls and timeouts. The live AI service
+requires a configured key; tests cover its protocol using mocked responses.
+Reference: https://developers.openai.com/api/docs/guides/function-calling
+
+
+## Gmail sender and email recovery codes
+
+Email password recovery sends a six-digit, one-use code (10 minute expiry,
+5 attempts), then exchanges it for the existing reset grant. Codes are stored
+only as an HMAC bound to the browser challenge. Existing email-reset links remain
+valid until their original expiry. An additive startup migration adds the code
+hash column without removing existing recovery records.
+
+For a Gmail sender, enable Google 2-Step Verification and create a dedicated app
+password. In the backend environment set `SMTP_HOST=smtp.gmail.com`,
+`SMTP_PORT=587`, `SMTP_SECURITY=starttls`, `SMTP_USERNAME` to the platform's Gmail,
+`SMTP_FROM` to the same address (optionally with the WAMEED display name), and
+`SMTP_PASSWORD` to the app password. Restart the backend after saving settings.
+Never use the account's normal password. Recovery codes are sent to each user's
+registered email, from the platform sender. Delivery must be tested after valid
+credentials are configured; automated tests use a simulated mail service.
+
+The same Gmail address may own the OpenAI account, but OpenAI authentication uses
+its own `OPENAI_API_KEY`; Gmail SMTP credentials do not activate AI chat.

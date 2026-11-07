@@ -20,7 +20,7 @@ const methods = [
       return tr("Email address");
     },
     get note() {
-      return tr("Link sent to your registered email");
+      return tr("Code sent to your registered email");
     },
     icon: Mail,
   },
@@ -244,58 +244,47 @@ export default function ForgotPassword() {
                 {busy ? <Loader2 className="animate-spin" size={18} /> : null}
                 {seconds > 0
                   ? "" + tr("Try again in ") + seconds + tr(" seconds")
-                  : method === "email"
-                    ? tr("Send recovery link")
-                    : tr("Send recovery code")}
+                  : tr("Send recovery code")}
               </button>
             </form>
           ) : (
             <div className="space-y-4">
-              {method !== "email" ? (
-                <form onSubmit={verify} className="space-y-4">
-                  <label className="block text-sm font-bold">
-                    {" "}
-                    {tr("Recovery code")}{" "}
-                    <input
-                      autoFocus
-                      className="auth-input"
-                      dir="ltr"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      required
-                      pattern="[0-9]{4,10}"
-                      maxLength={10}
-                      placeholder={tr("Enter code")}
-                      value={code}
-                      onChange={(e) =>
-                        setCode(
-                          e.target.value.replace(/[٠-٩]/g, (x) =>
-                            String("٠١٢٣٤٥٦٧٨٩".indexOf(x)),
-                          ),
-                        )
-                      }
-                    />
-                  </label>
-                  <p className="text-xs auth-muted">
-                    {" "}
-                    {tr(
-                      "The code expires in 10 minutes. You have 5 verification attempts.",
-                    )}{" "}
-                  </p>
-                  <button className={button} disabled={busy}>
-                    {busy
-                      ? tr("Verifying\u2026")
-                      : tr("Verify code and continue")}
-                  </button>
-                </form>
-              ) : (
-                <p className="text-sm auth-muted">
+              <form onSubmit={verify} className="space-y-4">
+                <label className="block text-sm font-bold">
+                  {" "}
+                  {tr("Recovery code")}{" "}
+                  <input
+                    autoFocus
+                    className="auth-input"
+                    dir="ltr"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    pattern={method === "email" ? "[0-9]{6}" : "[0-9]{4,10}"}
+                    maxLength={method === "email" ? 6 : 10}
+                    placeholder={tr("Enter code")}
+                    value={code}
+                    onChange={(e) =>
+                      setCode(
+                        e.target.value.replace(/[٠-٩]/g, (x) =>
+                          String("٠١٢٣٤٥٦٧٨٩".indexOf(x)),
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <p className="text-xs auth-muted">
                   {" "}
                   {tr(
-                    "Open the link in your email to set a new password. The link expires in 15 minutes.",
+                    "The code expires in 10 minutes. You have 5 verification attempts.",
                   )}{" "}
                 </p>
-              )}
+                <button className={button} disabled={busy}>
+                  {busy
+                    ? tr("Verifying\u2026")
+                    : tr("Verify code and continue")}
+                </button>
+              </form>
               <button
                 type="button"
                 className="w-full text-sm font-bold auth-link underline disabled:opacity-50"

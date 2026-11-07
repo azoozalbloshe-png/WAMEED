@@ -10,7 +10,7 @@ def providers(monkeypatch):
     from app import mailer, phone_provider
     emails=[];phones=[]
     monkeypatch.setattr(mailer,'configured',lambda:True)
-    monkeypatch.setattr(mailer,'send_reset_link',lambda email,token: emails.append((email,token)) or True)
+    monkeypatch.setattr(mailer,'send_reset_code',lambda email,token: emails.append((email,token)) or True)
     monkeypatch.setattr(phone_provider,'recovery_configured',lambda method:True)
     monkeypatch.setattr(phone_provider,'send_recovery',lambda phone,method: phones.append((phone,method)) or True)
     monkeypatch.setattr(phone_provider,'check_recovery',lambda phone,code:code=='123456')
@@ -27,8 +27,20 @@ def test_email_recovery_end_to_end_and_generic_unknown(client,db,providers):
     assert known.json()['message']==unknown.json()['message']
     assert set(known.json())==set(unknown.json())
     assert len(providers[0])==1
-    token=providers[0][0][1]
+    code=providers[0][0][1]
+    assert len(code)==6 and code.isascii() and code.isdigit()
+    request_id=known.json()['request_id']
+    challenge=db.query(RecoveryRequest).filter(RecoveryRequest.user_id==user.id).one()
+    assert challenge.code_hash != code and code not in known.text
+    assert db.query(PasswordReset).count()==0
+    assert client.post('/api/auth/recovery/verify',json={'request_id':unknown.json()['request_id'],'code':code}).status_code==400
+    wrong='000000' if code!='000000' else '111111'
+    assert client.post('/api/auth/recovery/verify',json={'request_id':request_id,'code':wrong}).status_code==400
+    verified=client.post('/api/auth/recovery/verify',json={'request_id':request_id,'code':code})
+    assert verified.status_code==200,verified.text
+    token=verified.json()['reset_token']
     assert db.query(PasswordReset).one().token_hash==hashlib.sha256(token.encode()).hexdigest()
+    assert client.post('/api/auth/recovery/verify',json={'request_id':request_id,'code':code}).status_code==400
     assert client.post('/api/auth/reset-password',json={'token':token,'new_password':'Updated-password-123'}).status_code==200
     assert client.get('/api/auth/me',headers=old).status_code==401
     assert client.post('/api/auth/login',json={'email':user.email,'password':'Updated-password-123'}).status_code==200
@@ -116,3 +128,29 @@ def test_provider_payloads_and_separate_service(monkeypatch):
     assert calls[-1][2]=='recovery-service'
     monkeypatch.setattr(settings,'TWILIO_RECOVERY_SERVICE_SID','verification-service')
     assert phone_provider.recovery_configured('sms') is False
+
+
+@pytest.mark.parametrize('reason',['expired','attempts','email_changed','version_changed','deactivated'])
+def test_email_code_invalidated_and_does_not_create_grant(client,db,providers,reason):
+    user=make(db,'emailcode')
+    response=client.post('/api/auth/forgot-password',json={'email':user.email})
+    request_id=response.json()['request_id'];code=providers[0][0][1]
+    entry=db.query(RecoveryRequest).one()
+    if reason=='expired': entry.expires_at=datetime.utcnow()-timedelta(seconds=1)
+    elif reason=='attempts': entry.attempts=5
+    elif reason=='email_changed': user.email='different@example.com'
+    elif reason=='version_changed': user.token_version+=1
+    else: user.is_active=False
+    db.commit()
+    assert client.post('/api/auth/recovery/verify',json={'request_id':request_id,'code':code}).status_code==400
+    assert db.query(PasswordReset).count()==0
+
+
+def test_failed_email_delivery_invalidates_challenge(client,db,providers,monkeypatch):
+    from app import mailer
+    monkeypatch.setattr(mailer,'send_reset_code',lambda *args:False)
+    user=make(db,'deliveryfail')
+    result=client.post('/api/auth/forgot-password',json={'email':user.email})
+    assert result.status_code==200
+    assert db.query(RecoveryRequest).one().used_at is not None
+    assert db.query(PasswordReset).count()==0
