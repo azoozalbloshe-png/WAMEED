@@ -133,9 +133,8 @@ export default function ReportCenter() {
           ))}
         </select>
       </label>
-      <FilterPanel title="Period & property">
-        <RangeFilters
-          value={range}
+        <FilterPanel title={tr("Period & property")}>
+          <RangeFilters          value={range}
           onChange={(r) => {
             setRange({ ...r, status: draftStatus, category: draftCategory });
             setPage(1);

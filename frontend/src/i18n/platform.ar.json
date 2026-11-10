@@ -1032,5 +1032,24 @@
   "Unable to load notifications.": "تعذّر تحميل الإشعارات.",
   "No alerts need follow-up right now.": "لا توجد إشعارات تحتاج متابعة حاليًا.",
   "View all notifications": "عرض كل الإشعارات",
-  "Code sent to your registered email": "رمز على البريد المسجل في حسابك"
+
+  "Code sent to your registered email": "رمز على البريد المسجل في حسابك",
+  "Manage your properties, tenants, contracts and finances from one place.": "أدر عقاراتك ومستأجريك وعقودك وشؤونك المالية من مكان واحد.",
+  "A snapshot of your properties and leases": "ملخص عقاراتك وعقود التأجير",
+  "Total property units": "إجمالي الوحدات العقارية",
+  "Occupied units": "الوحدات المشغولة",
+  "Currently occupied units": "الوحدات المشغولة حاليًا",
+  "Currently active contracts": "العقود النشطة حاليًا",
+  "Upcoming contracts": "العقود القادمة",
+  "Contracts approaching expiry": "العقود التي اقترب موعد انتهائها",
+  "Through today · From your actual records": "حتى اليوم · وفقًا لسجلاتك الفعلية",
+  "Contracts approaching their end date": "العقود التي اقترب موعد انتهائها",
+  "View all": "عرض الكل",
+  "There are no upcoming contracts to display": "لا توجد عقود قادمة لعرضها",
+  "Dashboard overview": "نظرة عامة على لوحة التحكم",
+  "Your property portfolio and business activity": "محفظتك العقارية ونشاطك التجاري",
+  "Total registered properties": "إجمالي العقارات المسجلة",
+  "View reports": "عرض التقارير",
+  "Upcoming contract expirations": "العقود التي اقترب موعد انتهائها",
+  "No upcoming contract expirations": "لا توجد عقود اقترب موعد انتهائها"
 }

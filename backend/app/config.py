@@ -67,11 +67,30 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     ASSISTANT_MODEL: str = "gpt-4.1-mini"
     
+
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parents[1] / ".env")
         case_sensitive = True
 
 
 settings = Settings()
-if not settings.SECRET_KEY or settings.SECRET_KEY in ("your-secret-key-here", "your-secret-key"):
+
+# Resolve relative SQLite paths from the backend directory.
+if (
+    settings.DATABASE_URL.startswith("sqlite:///")
+    and not settings.DATABASE_URL.startswith("sqlite:////")
+):
+    relative_db_path = settings.DATABASE_URL.removeprefix("sqlite:///")
+
+    if relative_db_path != ":memory:":
+        database_path = (
+            Path(__file__).resolve().parents[1] / relative_db_path
+        ).resolve()
+
+        settings.DATABASE_URL = f"sqlite:///{database_path}"
+
+if not settings.SECRET_KEY or settings.SECRET_KEY in (
+    "your-secret-key-here",
+    "your-secret-key",
+):
     settings.SECRET_KEY = local_secret()
