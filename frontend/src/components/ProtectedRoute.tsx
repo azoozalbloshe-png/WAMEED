@@ -28,8 +28,7 @@ export function AdminRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   // Check for super_admin role
-  if (!user || user.role !== "super_admin") {
-    return <Navigate to="/dashboard" replace />;
-  }
-  return children;
+if (!user || user.role !== "super_admin") {
+  return <Navigate to="/" replace />;
+}  return children;
 }

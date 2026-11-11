@@ -14,10 +14,8 @@ import { lazy, Suspense } from "react";
 import { Loading } from "./components/platform/UI";
 const AlertsPage = lazy(() => import("./pages/Alerts"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Auth/Login"));
-const Register = lazy(() => import("./pages/Auth/Register"));
-const MeterCalculation = lazy(() => import("./pages/MeterCalculation"));
+const Register = lazy(() => import("./pages/Auth/Register"));const MeterCalculation = lazy(() => import("./pages/MeterCalculation"));
 const Properties = lazy(() => import("./pages/Properties"));
 const Developer = lazy(() => import("./pages/Developer"));
 const ResetPassword = lazy(() => import("./pages/Auth/ResetPassword"));
@@ -49,17 +47,28 @@ export function App() {
             >
               <Suspense fallback={<Loading />}>
                 <Routes>
-                  <Route
-                    path="/properties/:id"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <EntityDetails kind="property" />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
+                    <Route
+                      path="/properties/:id"
+                      element={
+                        <ProtectedRoute>
+                          <Layout>
+                            <EntityDetails kind="property" />
+                          </Layout>
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <Layout>
+                            <Dashboard />
+                          </Layout>
+                        </ProtectedRoute>
+                      }
+                    />                
+             <Route
                     path="/units/:id"
                     element={
                       <ProtectedRoute>
@@ -125,25 +134,10 @@ export function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route
-                    path="/"
-                    element={
-                      <Layout>
-                        <Home />
-                      </Layout>
-                    }
-                  />
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <Dashboard />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
+<Route
+  path="/dashboard"
+  element={<Navigate to="/" replace />}
+/>                  <Route
                     path="/properties"
                     element={
                       <ProtectedRoute>
@@ -213,11 +207,10 @@ export function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route
-                    path="*"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                </Routes>
+<Route
+  path="*"
+  element={<Navigate to="/" replace />}
+/>                </Routes>
               </Suspense>
             </Router>
           </PermissionsProvider>

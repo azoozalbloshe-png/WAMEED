@@ -22,8 +22,7 @@ export default function Login() {
     try {
       await login(identifier.trim(), password, rememberMe);
       // All authenticated users land on a route that is actually registered.
-      navigate("/dashboard");
-    } catch (err: any) {
+navigate("/");    } catch (err: any) {
       const errorMsg =
         err?.response?.data?.detail ||
         err?.response?.data?.error ||

@@ -1,25 +1,26 @@
+
 import {
   BarChart3,
   Building2,
   CreditCard,
   FileText,
   Home,
-  Settings,
-  Shield,
   Users,
   Wrench,
   Zap,
 } from "lucide-react";
+
 export type CanRead = (resource: string) => boolean;
+
 export const workspaceGroups = [
   {
     id: "home",
     label: "Home",
     icon: Home,
     tabs: [
-      { path: "/dashboard", label: "Home", icon: Home, resource: "dashboard" },
+      { path: "/", label: "Home", icon: Home, resource: "dashboard" },
     ],
-    matches: ["/dashboard"],
+    matches: ["/"],
   },
   {
     id: "properties",
@@ -90,44 +91,18 @@ export const workspaceGroups = [
     ],
     matches: ["/reports"],
   },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
-    tabs: [
-      { path: "/settings", label: "Settings", icon: Settings, resource: "" },
-    ],
-    matches: ["/settings"],
-  },
-  {
-    id: "developer",
-    label: "Developer console",
-    icon: Shield,
-    tabs: [
-      {
-        path: "/developer",
-        label: "Developer console",
-        icon: Shield,
-        resource: "admin",
-      },
-    ],
-    matches: ["/developer"],
-  },
 ];
+
 export const matchesPath = (pathname: string, prefix: string) =>
   pathname === prefix || pathname.startsWith(prefix + "/");
-export function visibleGroups(can: CanRead, role?: string) {
-  return workspaceGroups
+
+export function visibleGroups(can: CanRead) {  return workspaceGroups
     .map((group) => ({
       ...group,
       tabs: group.tabs.filter((tab) =>
-        tab.resource === "admin"
-          ? role === "super_admin"
-          : !tab.resource
-            ? true
-            : tab.path === "/payments"
-              ? can("payments") || can("expenses")
-              : can(tab.resource),
+        tab.path === "/payments"
+          ? can("payments") || can("expenses")
+          : can(tab.resource),
       ),
     }))
     .filter((group) => group.tabs.length > 0);

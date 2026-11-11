@@ -342,17 +342,7 @@ export default function Dashboard() {
       </header>
 
       {/* Refresh and status */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black">
-            {tr("Dashboard overview")}
-          </h2>
-          <p className="dashboard-muted mt-1 text-sm">
-            {tr("Your property portfolio and business activity")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
+<div className="flex flex-wrap items-center justify-end gap-3">        <div className="flex flex-wrap items-center gap-3">
           {updatedAt && (
             <p className="dashboard-muted text-xs" role="status">
               {loading
@@ -451,24 +441,7 @@ export default function Dashboard() {
       {summary && (
         <div className="space-y-8" aria-busy={loading}>
           {/* Portfolio statistics */}
-          <section
-            aria-labelledby="portfolio-title"
-            className="space-y-4"
-          >
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2
-                  id="portfolio-title"
-                  className="text-xl font-black"
-                >
-                  {tr("Portfolio overview")}
-                </h2>
-                <p className="dashboard-muted mt-1 text-sm">
-                  {tr("A snapshot of your properties and leases")}
-                </p>
-              </div>
-            </div>
-
+<section className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {statistics.map(
                 ({

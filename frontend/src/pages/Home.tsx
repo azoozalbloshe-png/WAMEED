@@ -1,10 +1,8 @@
 import { useLanguage as useUiLanguage } from "../contexts/LanguageContext";
 import { tr } from "../i18n/runtime";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 export default function Home() {
   useUiLanguage();
-  const navigate = useNavigate();
   const { language } = useLanguage();
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-8">
@@ -26,12 +24,6 @@ export default function Home() {
                 )
               : "Everything is under control for efficient property and meter management."}
           </p>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="rounded-xl bg-[var(--brand-highlight)] px-6 py-3 font-bold text-[var(--brand-nav)] shadow-lg transition-all duration-300 hover:bg-[var(--brand-highlight)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-highlight)]"
-          >
-            {language === "ar" ? tr("Go to dashboard") : "Go to Dashboard"}
-          </button>
         </div>
       </div>
     </div>

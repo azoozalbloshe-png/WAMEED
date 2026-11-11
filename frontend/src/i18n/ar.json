@@ -103,21 +103,16 @@
     "save": "حفظ",
     "cancel": "إلغاء",
     "edit": "تعديل",
-    "delete": "حذف",
-    "confirmDelete": "هل أنت متأكد من حذف هذه القراءة؟",
-    "delete": "حذف",
-    "confirm": "تأكيد",
-    "cancel": "إلغاء",
-    "saveReading": "حفظ القراءة",
+    "createdAt": "تم الإنشاء في",
+    "updatedAt": "تم التحديث في",
     "readingSaved": "تم حفظ القراءة بنجاح!",
     "readingDeleted": "تم حذف القراءة بنجاح!",
     "failedToSave": "فشل حفظ القراءة",
-    "failedToDelete": "فشل حذف القراءة"
+    "failedToDelete": "فشل حفظ القراءة"
   },
   "common": {
-    "loading": "جاري التحميل...",
-    "save": "حفظ",
-    "cancel": "إلغاء",
+"loading": "جاري التحميل...",
+"save": "حفظ","cancel": "إلغاء",
     "delete": "حذف",
     "edit": "تعديل",
     "confirm": "تأكيد",
@@ -131,7 +126,6 @@
     "no": "لا",
     "all": "الكل",
     "none": "لا شيء",
-    "loading": "جاري التحميل",
     "error": "خطأ",
     "success": "نجاح",
     "warning": "تحذير",
@@ -147,11 +141,5 @@
     "area": "المنطقة",
     "status": "الحالة",
     "createdAt": "تم الإنشاء في",
-    "updatedAt": "تم التحديث في",
-    "actions": "إجراءات",
-    "save": "حفظ",
-    "cancel": "إلغاء",
-    "confirm": "تأكيد",
-    "submit": "إرسال"
-  }
+"updatedAt": "تم التحديث في"  }
 }
