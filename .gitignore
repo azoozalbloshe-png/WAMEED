@@ -69,3 +69,11 @@ docker-compose.override.yml
 # Private database snapshots and metadata
 backups/
 *.partial
+
+# Node.js
+node_modules/
+frontend/dist/
+
+# Backup files
+*.bak
+*.backup
